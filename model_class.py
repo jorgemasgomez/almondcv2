@@ -35,7 +35,8 @@ class model_segmentation():
         else:
             print("No se detectó ninguna GPU. Usando CPU.")
 
-    def train_segmentation_model(self, input_zip, pre_model="yolov8n-seg.pt", epochs=100, imgsz=640,batch=-1, name_segmentation=""):
+    def train_segmentation_model(self, input_zip, pre_model="yolov8n-seg.pt", epochs=100, imgsz=640,batch=-1, name_segmentation="",
+                                 retina_masks=True):
 
         #Partimos del archivo en formato de YOLO Segmentation obtenido en CVAT
 
@@ -91,14 +92,15 @@ class model_segmentation():
         self.test_set_folder=test_set_folder
         
         #results devuelve una lista por foto, con una lista de arrays con las coordenadas de cada uno de los objetos segmentados.
-        results_test_set = model.predict(self.test_set_folder, imgsz=imgsz, show= False, save=True, show_boxes=False, project=results_models_directory, save_txt=True, name="predictions_test")
+        results_test_set = model.predict(self.test_set_folder, imgsz=imgsz, show= False, save=True, show_boxes=False, project=results_models_directory, save_txt=True,
+                                          name="predictions_test", retina_masks=retina_masks)
         
-    def predict_model(self, model_path, folder_input, imgsz=640, check_result=False):
+    def predict_model(self, model_path, folder_input, imgsz=640, check_result=False, conf=0.6, max_det=300, retina_mask=True):
         model = YOLO(model_path)
         if check_result==False:
-            results= model.predict(folder_input, imgsz=imgsz, show= False, save=False, show_boxes=False)
+            results= model.predict(folder_input, imgsz=imgsz, show= False, save=False, show_boxes=False, conf=conf, max_det=max_det, retina_masks=retina_mask)
         elif check_result==True:
-            results= model.predict(folder_input, imgsz=imgsz, show= False, save=True, show_boxes=False,project=self.working_directory, name="check_results")
+            results= model.predict(folder_input, imgsz=imgsz, show= False, save=True, show_boxes=False,project=self.working_directory, name="check_results", conf=conf, max_det=max_det, retina_masks=retina_mask)
 
         #results contiene una lista con los contornos de las imagenes, identificación y demas en results[i].path tienes la ruta, y en results[i].masks.xy[e] tienes el array de contorno de la foto i el contorno e
         
@@ -107,13 +109,15 @@ class model_segmentation():
     #deprecated
     def predict_model_sahi(self, model_path, folder_input,confidence_treshold=0.5, model_type='yolov8',
                             slice_height=640, slice_width=640, overlap_height_ratio=0.2, overlap_width_ratio=0.2, postprocess_type="NMS", check_result=False
-                            , postprocess_match_metric="IOS", postprocess_match_threshold=0.5):
+                            , postprocess_match_metric="IOS", postprocess_match_threshold=0.5, retina_masks=True, imgsz=640):
         
         detection_model_seg = AutoDetectionModel.from_pretrained(
         model_type=model_type,
         model_path=model_path,
         confidence_threshold=confidence_treshold,
-        device=self.device)
+        device=self.device,
+        retina_masks=retina_masks,
+        image_size=imgsz)
         
         # Lista de extensiones de imágenes comúnmente utilizadas
         image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
@@ -127,20 +131,6 @@ class model_segmentation():
         i=1
         for pic in image_list:
             print(f"Pic {i}/{len(image_list)}")
-            #pruebas resizing
-            # pic_resized=cv2.imread(pic)
-            # scale_factor = 2  # Puedes ajustar este valor
-            # new_width = int(pic_resized.shape[1] * scale_factor)
-            # new_height = int(pic_resized.shape[0] * scale_factor)
-            # pic_resized=cv2.resize(pic_resized, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-                    # Manipular la ruta para crear el nuevo nombre
-            # dir_name, file_name = os.path.split(pic)  # Obtener directorio y nombre del archivo
-            # name, ext = os.path.splitext(file_name)   # Obtener nombre y extensión
-            # new_file_path_resized = os.path.join(dir_name, f"{name}_temp{ext}")  # Crear nuevo nombre con _temp
-
-            # # Guardar la imagen redimensionada con el nuevo nombre
-            # cv2.imwrite(new_file_path_resized, pic_resized)
-
 
 
             result=get_sliced_prediction(
@@ -161,7 +151,7 @@ class model_segmentation():
 
     
     
-    def slice_predict_reconstruct(self, input_folder, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio):
+    def slice_predict_reconstruct(self, input_folder, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio, conf=0.5,retina_mask=True):
                 # Lista de extensiones de imágenes comúnmente utilizadas
         image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
 
@@ -170,7 +160,9 @@ class model_segmentation():
                     for file in os.listdir(input_folder) 
                     if os.path.splitext(file)[1].lower() in image_extensions]
         mask_list_images=[]
+        n=1
         for image_path in image_list:
+            print(f"Image{n}/{len(image_list)}")
             image_selected = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
             if image_selected.shape[2] == 4:
                 image_selected = cv2.cvtColor(image_selected, cv2.COLOR_RGBA2RGB)
@@ -186,7 +178,8 @@ class model_segmentation():
             for slice in image_sliced.images:
                 model = YOLO(model_path, verbose=False)  # load a pretrained model (recommended for training)
                 model.to(self.device)
-                results= model.predict(slice, imgsz=imgsz, show= False, save=False, show_boxes=False, verbose=False)
+                results= model.predict(slice, imgsz=imgsz, show= False, save=False, show_boxes=False,
+                                        verbose=False, conf=conf, retina_masks=retina_mask)
                 
                 h_slice=slice.shape[0]
                 w_slice=slice.shape[1]
@@ -209,8 +202,9 @@ class model_segmentation():
                 mask_added[start_y:start_y + h_slice, start_x:start_x + w_slice] = mask_combined_slice
                 mask_complete = cv2.bitwise_or(mask_complete, mask_added)
                 slice_count=slice_count+1
+            n=n+1
             
-            mask_list_images.append([mask_complete,image_path,])
+            mask_list_images.append([mask_complete,image_path])
         return mask_list_images
     
             

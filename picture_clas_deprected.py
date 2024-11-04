@@ -112,8 +112,8 @@ class pictures():
                 contour_pixels = array_contour.astype(np.int32)
                 contour_opencv = contour_pixels.reshape((-1, 1, 2))
                 #prueba reescalado
-                scale_factor=0.5
-                contour_opencv=(contour_opencv * scale_factor).astype(np.int32)
+                # scale_factor=0.5
+                # contour_opencv=(contour_opencv * scale_factor).astype(np.int32)
                 #Refinado del contorno
 
                 # h, w = almonds.shape[:2]

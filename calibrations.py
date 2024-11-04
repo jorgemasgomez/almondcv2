@@ -6,26 +6,27 @@ import numpy as np
 import cv2 as cv
 import pathlib
 
-
-def calibrate_color(input_picture,input_folder="",output_path="",approach="color", radius_parameter=10, standard_matrix="No"):
+#en esta funcion input_picture solo para cuando es combinado.
+def calibrate_color(input_picture="",input_folder="",output_path="",approach="color", radius_parameter=10, standard_matrix="No", force_standard_matrix="No"):
     if approach=="color":
+        errors=[]
         for image_input in os.listdir(input_folder):
 
-            if image_input.endswith(".JPG"):
+            if image_input.lower().endswith((".jpg", ".jpeg", ".png")):
                 try:
                     image_path = os.path.join(input_folder, image_input)
                     source_cv,_, _=pcv.readimage(filename=image_path)
-                    if standard_matrix=="No":
 
-                        # First, detect the color card.
-                        card_mask = pcv.transform.detect_color_card(rgb_img=source_cv, radius=radius_parameter)
-                        headers, card_matrix = pcv.transform.get_color_matrix(rgb_img=source_cv, mask=card_mask)
-                        std_color_matrix = pcv.transform.std_color_matrix(pos=3)
-                        img_cc = pcv.transform.affine_color_correction(rgb_img=source_cv, source_matrix=card_matrix, 
-                                                                target_matrix=std_color_matrix)
-                        pcv.print_image(img=img_cc, filename=os.path.join(output_path,f"CL_{image_input}"))
+                    # First, detect the color card.
+                    card_mask = pcv.transform.detect_color_card(rgb_img=source_cv, radius=radius_parameter)
+                    headers, card_matrix = pcv.transform.get_color_matrix(rgb_img=source_cv, mask=card_mask)
+                    std_color_matrix = pcv.transform.std_color_matrix(pos=3)
+                    img_cc = pcv.transform.affine_color_correction(rgb_img=source_cv, source_matrix=card_matrix, 
+                                                            target_matrix=std_color_matrix)
+                    pcv.print_image(img=img_cc, filename=os.path.join(output_path,f"CL_{image_input}"))
 
-                    if standard_matrix!="No":
+                    if force_standard_matrix!="No":
+                        print("Using standard matrix")
                         standard_matrix_pic,_, _=pcv.readimage(filename=standard_matrix)
                         card_mask = pcv.transform.detect_color_card(rgb_img=standard_matrix_pic, radius=radius_parameter)
                         headers, card_matrix = pcv.transform.get_color_matrix(rgb_img=standard_matrix_pic, mask=card_mask)
@@ -34,13 +35,24 @@ def calibrate_color(input_picture,input_folder="",output_path="",approach="color
                                                                 target_matrix=std_color_matrix)
                         pcv.print_image(img=img_cc, filename=os.path.join(output_path,f"CL_{image_input}"))
 
-
                 except Exception as e:
                     print(f"Some problem with picture {os.path.join(input_folder,f"{image_input}")}")
                     print(e)
-                    continue
-    
-    
+                    errors.append(image_input)
+                    if standard_matrix!="No":
+                        print("Using standard matrix")
+                        standard_matrix_pic,_, _=pcv.readimage(filename=standard_matrix)
+                        card_mask = pcv.transform.detect_color_card(rgb_img=standard_matrix_pic, radius=radius_parameter)
+                        headers, card_matrix = pcv.transform.get_color_matrix(rgb_img=standard_matrix_pic, mask=card_mask)
+                        std_color_matrix = pcv.transform.std_color_matrix(pos=3)
+                        img_cc = pcv.transform.affine_color_correction(rgb_img=source_cv, source_matrix=card_matrix, 
+                                                                target_matrix=std_color_matrix)
+                        pcv.print_image(img=img_cc, filename=os.path.join(output_path,f"CL_{image_input}"))
+        
+        with open(os.path.join(output_path,"errors_in_calibrations.txt"), "w") as archivo:
+            for item in errors:
+                archivo.write(f"{item}\n")  
+           
     elif approach=="combined":
         try:
             source_cv,_, _=pcv.readimage(filename=input_picture)
@@ -135,7 +147,7 @@ def calibrate_distortion(input_picture,  mtx_input,output_path, approach="distor
     dist = data['dist']
     if approach=="distortion":
         for image_input in os.listdir(input_folder):
-            if image_input.endswith(".JPG"):
+            if image_input.lower().endswith((".jpg", ".jpeg", ".png")):
                 image_path = os.path.join(input_folder, image_input)
                 img,_, _=pcv.readimage(filename=image_path)
                 h,  w = img.shape[:2]
@@ -161,7 +173,7 @@ def calibrate_distortion(input_picture,  mtx_input,output_path, approach="distor
 def calibrate_color_and_distortion(raw_folder, mtx_input_path,output_calibrated, radius_param=10, standard_matrix="No"):
     errors=[]
     for image_input in os.listdir(raw_folder):
-            if image_input.endswith(".JPG"):
+            if image_input.lower().endswith((".jpg", ".jpeg", ".png")):
                 image_path = os.path.join(raw_folder, image_input)
                 try:
                     color_calibrated=calibrate_color(input_picture=image_path,approach="combined", radius_parameter=radius_param, standard_matrix=standard_matrix)
