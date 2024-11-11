@@ -29,11 +29,6 @@ def install_morphometrics_packages_r():
 
 
 
-import os
-import subprocess
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-
 def exploratory_morphometrics_r(
     info_data, 
     grouping_factor, 
@@ -141,6 +136,70 @@ def exploratory_morphometrics_r(
                         plt.imshow(img)
                         plt.axis('off')
                         plt.show()
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error al ejecutar el script R: {e.stderr}")
+
+
+
+def run_efourier_pca_morphometrics_r(ruta_outline_objects, nharmonics, output_directory, 
+                                      img_width_boxplot=750, img_height_boxplot=500, 
+                                      img_width_pca=750, img_height_pca=500, show=False):
+    """
+    Ejecuta el script de R "efourier_morphometrics.R" con los argumentos proporcionados.
+
+    Parámetros:
+    - ruta_outline_objects (str): Ruta al archivo RDS con los outlines.
+    - nharmonics (int): Número de armónicos para el análisis de Fourier.
+    - output_directory (str): Directorio de salida donde se guardarán los resultados.
+    - img_width_boxplot (int): Ancho de la imagen del boxplot.
+    - img_height_boxplot (int): Alto de la imagen del boxplot.
+    - img_width_pca (int): Ancho de la imagen para el gráfico PCA.
+    - img_height_pca (int): Alto de la imagen para el gráfico PCA.
+    - show (bool): Si es True, muestra el gráfico PCA generado con matplotlib.
+    """
+
+    # Verificar que el directorio de salida existe, si no, crearlo
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Ruta del script R
+    script_r_path = "efourier_morphometrics.R"
+
+    # Crear el comando para ejecutar el script R con los argumentos
+    command = [
+        'Rscript', 
+        script_r_path, 
+        str(ruta_outline_objects),  # Ruta al archivo RDS con los outlines
+        str(nharmonics),       # Número de armónicos
+        str(output_directory),      # Directorio de salida
+        str(img_width_boxplot),  # Ancho del boxplot
+        str(img_height_boxplot), # Alto del boxplot
+        str(img_width_pca),     # Ancho de la imagen PCA
+        str(img_height_pca)    # Alto de la imagen PCA
+    ]
+
+    # Ejecutar el comando con subprocess
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        
+        # Mostrar la salida del comando R
+        print("Salida del comando R:")
+        print(result.stdout)
+
+        # Mostrar cualquier error si ocurre
+        if result.stderr:
+            print("Error:")
+            print(result.stderr)
+
+        # Si 'show' es True, intentar mostrar el gráfico PCA
+        if show:
+            pca_image_path = os.path.join(output_directory, "efourier_results", "pca_output.png")
+            if os.path.exists(pca_image_path):
+                img = mpimg.imread(pca_image_path)
+                plt.imshow(img)
+                plt.axis('off')  # Desactivar los ejes
+                plt.show()
 
     except subprocess.CalledProcessError as e:
         print(f"Error al ejecutar el script R: {e.stderr}")

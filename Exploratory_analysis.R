@@ -76,6 +76,9 @@ if (exists("info_data_df")) {
   dev.off()
 }
 
+saveRDS(outlines_objects, file = file.path(output_folder,"outlines_objects.rds"))
+
+
 # Loop para ejecutar Ptolemy, calibrate_deviations_efourier y calibrate_reconstructions_efourier
 for (i in 1:nexamples) {
   # Seleccionar un índice aleatorio dentro de outlines_objects
