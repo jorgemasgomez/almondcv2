@@ -36,7 +36,7 @@ class model_segmentation():
             print("No se detectó ninguna GPU. Usando CPU.")
 
     def train_segmentation_model(self, input_zip, pre_model="yolov8n-seg.pt", epochs=100, imgsz=640,batch=-1, name_segmentation="",
-                                 retina_masks=True):
+                                 retina_masks=True, pose=False, keypoints_pose=1):
 
         #Partimos del archivo en formato de YOLO Segmentation obtenido en CVAT
 
@@ -66,6 +66,14 @@ class model_segmentation():
             'train': 'images/Train',  # Borrar referencia a Train.txt
             'val': 'images/Validation',  # Borrar referencia a Validation.txt
             'test': 'images/Test'  # Borrar referencia a Test.txt
+        }
+        if pose is True:
+            modified_data = {
+            'path': self.output_folder_zip,  # Cambiar 'path' a la primera fila
+            'train': 'images/Train',  # Borrar referencia a Train.txt
+            'val': 'images/Validation',  # Borrar referencia a Validation.txt
+            'test': 'images/Test',
+              "kpt_shape":[keypoints_pose, 3]    # Borrar referencia a Test.txt
         }
         
         # Agregar 'names' al final

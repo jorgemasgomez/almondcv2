@@ -4,19 +4,23 @@ import cv2
 import numpy as np
 from model_class import model_segmentation
 import os
-from aux_functions import midpoint, pol2cart, cart2pol
+from aux_functions import midpoint, pol2cart, cart2pol, calcular_simetria_horizontal, calcular_simetria_vertical
 import imutils
 from imutils import perspective
 from scipy.spatial import distance as dist
 import pandas as pd
 
 class pictures():
-    def __init__(self, working_directory, input_folder,info_file,fruit, project_name,binary_masks=False):
+    def __init__(self, working_directory, input_folder,info_file,fruit, project_name,
+                 binary_masks=False, blurring_binary_masks=True, blur_binary_masks_value=5):
         self.working_directory=working_directory
         self.input_folder=input_folder
         self.info_file=info_file
         self.fruit=fruit
         self.binary_masks=binary_masks
+        self.blurring_binary_masks=blurring_binary_masks
+        self.blur_binary_masks_value=blur_binary_masks_value
+
 
         self.project_name=project_name
         self.results_directory=os.path.join(working_directory,f"Results_{self.project_name}")
@@ -26,6 +30,7 @@ class pictures():
         self.path_export_2=os.path.join(self.results_directory, "results_general.txt")
         self.path_export_3=os.path.join(self.results_directory, "pic_results")
         self.path_export_4=os.path.join(self.results_directory, "binary_masks")
+        self.path_export_5=os.path.join(self.results_directory,"binary_masks_info_table.txt")
         os.makedirs(self.path_export_3, exist_ok=True)
         os.makedirs(self.path_export_4, exist_ok=True)
 
@@ -47,11 +52,11 @@ class pictures():
     def measure_almonds(self, margin=100, spacing=30):
         morphology_table=pd.DataFrame()
         morphology_table = pd.DataFrame(columns=["Project_name","Sample_picture","Fruit_name", "Fruit_number","Length","Width","Area", "Perimeter","Hull_area","Solidity","Circularity","Ellipse_Ratio","L","a","b"])
-        morphology_table.to_csv(self.path_export_1, mode='a', header=True, index=False, sep='\t')
+        
         
         general_table=pd.DataFrame()
         general_table = pd.DataFrame(columns=["Name_picture","Sample_number","ID","Weight","Session","Shell","Pixelmetric","Sample_picture","N_fruits","Weight_per_fruit"])
-        general_table.to_csv(self.path_export_2, mode='a', header=True, index=False, sep='\t')
+        
         
         self.margin=margin
 
@@ -155,7 +160,8 @@ class pictures():
             measure_pic = image_base.copy()
             elipse_pic=image_base.copy()
             circ_pic=image_base.copy()
-
+            widths_pic=image_base.copy()
+            symmetry_pic=image_base.copy()
             #Lists
             all_almond_contours=[]
             count=1
@@ -280,7 +286,8 @@ class pictures():
                 measure_pic = cv2.bitwise_or(measure_pic, relleno_almendra)
                 circ_pic = cv2.bitwise_or(circ_pic, relleno_almendra)
                 elipse_pic = cv2.bitwise_or(elipse_pic, relleno_almendra)
-
+                widths_pic=cv2.bitwise_or(widths_pic, relleno_almendra)
+                symmetry_pic=cv2.bitwise_or(symmetry_pic, relleno_almendra)
 
                 measure_pic=cv2.drawContours(measure_pic, [cnt_rotated], 0, (0, 255, 0), 1)
 
@@ -307,15 +314,17 @@ class pictures():
                 dA = dist.euclidean((tltrX, tltrY), (blbrX, blbrY))
                 dB = dist.euclidean((tlblX, tlblY), (trbrX, trbrY))
                 
-                dimA = float(dA / pixelmetric)
-                dimB = float(dB / pixelmetric)
 
-                if dimA < dimB:
-                    dimB_temp= dimB
-                    dimB=dimA
-                    dimA=dimB_temp
+
+                if dA < dB:
+                    dB_temp= dB
+                    dB=dA
+                    dA=dB_temp
                 else:
                     pass
+
+                dimA = float(dA / pixelmetric)
+                dimB = float(dB / pixelmetric)
                 cv2.putText(measure_pic, f"N: {count}", (int(tltrX), int(tltrY+10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 cv2.putText(measure_pic, "L:{:.2f}mm".format(dimA), (int(tltrX - 50), int(tltrY - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 cv2.putText(measure_pic, "W:{:.2f}mm".format(dimB), (int(trbrX - 100), int(trbrY)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
@@ -336,17 +345,42 @@ class pictures():
 
                 # Recortar la región de interés (ROI) de la imagen usando la bounding box
                 ROI = mascara[yb:yb+h, xb:xb+w]
-                
-                h_25=int(dimA*0.25)
-                h_50=int(dimA*0.50)
-                h_75=int(dimA*0.75)
+                # print(h, "h")
+                # print(dA, "dA")
+                h_25=int(dA*0.25)
+                h_50=int(dA*0.50)
+                h_75=int(dA*0.75)
 
                 width_25=cv2.countNonZero(ROI[h_25:h_25 + 1, :])/pixelmetric
                 width_50=cv2.countNonZero(ROI[h_50:h_50 + 1, :])/pixelmetric
                 width_75=cv2.countNonZero(ROI[h_75:h_75 + 1, :])/pixelmetric
-
-                print(width_25, width_50, width_75)
                 
+                verde = (0, 255, 0)
+                # Dibujar la línea verde en el 25% de la altura
+                cv2.line(widths_pic, (xb, yb + h_25), (xb + w, yb + h_25), verde, 1)
+
+                # Dibujar la línea verde en el 50% de la altura
+                cv2.line(widths_pic, (xb, yb + h_50), (xb + w, yb + h_50), verde, 1)
+
+                # Dibujar la línea verde en el 75% de la altura
+                cv2.line(widths_pic, (xb, yb + h_75), (xb + w, yb + h_75), verde, 1)
+
+                cv2.putText(widths_pic, "{:.2f}mm".format(float(width_25)), (int(tltrX - 40), int(yb + h_25)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                cv2.putText(widths_pic, "{:.2f}mm".format(float(width_50)), (int(tltrX - 40), int(yb + h_50)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                cv2.putText(widths_pic, "{:.2f}mm".format(float(width_75)), (int(tltrX - 40), int(yb + h_75)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+
+                ############### Symmetry x and y ##########################
+                
+                simmetry_v=calcular_simetria_vertical(ROI)
+                simmetry_h=calcular_simetria_horizontal(ROI)
+
+                cv2.line(symmetry_pic, (xb, yb + h_50), (xb + w, yb + h_50), verde, 1)
+                cv2.line(symmetry_pic, (xb+int(w/2), yb), (xb + int(w/2), yb + h), verde, 1)
+
+                cv2.putText(symmetry_pic, "Sv: {:.2f}".format(float(simmetry_v)), (int(tltrX - 40), int(yb )), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                cv2.putText(symmetry_pic, "Sh: {:.2f}".format(float( simmetry_h)), (int(tltrX - 40), int(yb + h_50)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+
+
                 ############### Area and perimeter##########################
                 area=(cv2.contourArea(cnt_rotated))/(pixelmetric**2)
                 perimeter= (cv2.arcLength(cnt_rotated, True))/(pixelmetric)
@@ -400,20 +434,29 @@ class pictures():
                         # Recortar la región de interés (ROI) de la imagen usando la bounding box
                         ROI = mascara[yb:yb+h, xb:xb+w]                   
                         
-                        #Escalar el ancho a 1000
+                        #Escalar la altura a 1000
 
-                        factor_escala=1000/ROI.shape[1]
-                        nueva_h=int(ROI.shape[0]*factor_escala)
-                        # Redimensionar la ROI para que tenga un alto de 1000 y el ancho calculado
-                        ROI_redimensionada = cv2.resize(ROI,(1000, nueva_h))
-                        # ROI_redimensionada=cv2.rotate(ROI_redimensionada, cv2.ROTATE_90_CLOCKWISE)
+                        factor_escala=1000/ROI.shape[0]
+                        nueva_h=1000
+                        nueva_w = int(ROI.shape[1] * factor_escala)
+                        ROI_redimensionada = cv2.resize(ROI, (nueva_w, nueva_h))
+
+                        # Creamos una imagen de fondo blanco de 1000x1000 píxeles
+                        imagen_final = np.ones((1000, 1000), dtype=np.uint8) * 255
+
+                        # Calculamos las coordenadas para centrar la ROI redimensionada en la imagen final
+                        x_offset = (1000 - nueva_w) // 2
+                        y_offset = (1000 - nueva_h) // 2
+
+                        # Insertamos la ROI redimensionada en el fondo blanco
+                        imagen_final[y_offset:y_offset + nueva_h, x_offset:x_offset + nueva_w] = ROI_redimensionada
                         
-                        # ROI_reducida = cv2.resize(ROI_redimensionada, (ROI_redimensionada.shape[1] // 2, ROI_redimensionada.shape[0] // 2))
-                        # # cv2.imshow("ffs", ROI_reducida)
-                        # # cv2.waitKey(0)
-                        # # cv2.destroyAllWindows()
+                        if self.blurring_binary_masks is True:# Aplicamos un suavizado gaussiano a la imagen final
+                            imagen_final = cv2.GaussianBlur(imagen_final, (self.blur_binary_masks_value, self.blur_binary_masks_value), 0)
 
-                        cv2.imwrite(f'{self.path_export_4}/{name_pic}_{count}.png', ROI_redimensionada)
+
+
+                        cv2.imwrite(f'{self.path_export_4}/{name_pic}_{count}.jpg', imagen_final)
 
 
                 #Write_results
@@ -472,11 +515,18 @@ class pictures():
             almonds_maskeadas= cv2.add(original_weighted, colored_mask)
 
 
-            output_pic=np.concatenate((almonds_maskeadas, measure_pic, circ_pic, elipse_pic), axis=1)
+            output_pic=np.concatenate((almonds_maskeadas, measure_pic, widths_pic, circ_pic, elipse_pic, symmetry_pic), axis=1)
             cv2.imwrite(f"{self.path_export_3}/rs_{name_pic}", output_pic)
 
-        morphology_table.to_csv(self.path_export_1, mode='a', header=False, index=False, sep='\t')
-        general_table.to_csv(self.path_export_2, mode='a', header=False, index=False, sep='\t')
+        morphology_table = pd.merge(morphology_table, general_table[['Sample_picture', 'ID']], left_on='Sample_picture', right_on='Sample_picture', how='left')
+        if self.binary_masks is True:
+            binary_table = morphology_table[['Sample_picture', 'ID', 'Fruit_number']]
+            binary_table['Binary_mask_picture'] = binary_table['Sample_picture'] + '_' + binary_table['Fruit_number'].astype(str)
+            binary_table = binary_table[['Binary_mask_picture', 'ID']]
+            binary_table.to_csv(self.path_export_5, mode='w', header=True, index=False, sep='\t')
+
+        morphology_table.to_csv(self.path_export_1, mode='w', header=True, index=False, sep='\t')
+        general_table.to_csv(self.path_export_2, mode='w', header=True, index=False, sep='\t')
          
           
             

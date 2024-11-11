@@ -245,3 +245,168 @@ def pol2cart(theta, rho):
     y = rho * np.sin(theta)
     return x, y
 
+def calcular_simetria_vertical(mascara_binaria):
+    """
+    Calcula el grado de simetría vertical de una imagen binaria.
+    
+    Parámetros:
+    mascara_binaria (numpy.ndarray): Imagen binaria (0 y 255) donde se calcula la simetría.
+    
+    Retorna:
+    float: Un valor entre 0 y 1 indicando la simetría vertical (1 significa completamente simétrico).
+    """
+    # Dividir la imagen en dos mitades
+    altura, anchura = mascara_binaria.shape
+    mitad_izquierda = mascara_binaria[:, :anchura // 2]
+    
+    # Si el ancho es impar, recortamos un píxel de la mitad derecha
+    if anchura % 2 != 0:
+        mitad_derecha = mascara_binaria[:, anchura // 2 + 1:]
+    else:
+        mitad_derecha = mascara_binaria[:, anchura // 2:]
+
+    # Voltear la mitad derecha horizontalmente
+    mitad_derecha_volteada = cv2.flip(mitad_derecha, 1)
+
+    # Calcular la diferencia entre las dos mitades
+    diferencia = cv2.absdiff(mitad_izquierda, mitad_derecha_volteada)
+
+    # Contar los píxeles diferentes (no coincidentes)
+    pixeles_diferentes = cv2.countNonZero(diferencia)
+    pixeles_totales = mitad_izquierda.size
+
+    # Calcular el puntaje de simetría
+    simetria = 1 - (pixeles_diferentes / pixeles_totales)
+    
+    return simetria
+
+def calcular_simetria_horizontal(mascara_binaria):
+    """
+    Calcula el grado de simetría horizontal de una imagen binaria.
+    
+    Parámetros:
+    mascara_binaria (numpy.ndarray): Imagen binaria (0 y 255) donde se calcula la simetría.
+    
+    Retorna:
+    float: Un valor entre 0 y 1 indicando la simetría horizontal (1 significa completamente simétrico).
+    """
+    # Dividir la imagen en dos mitades (superior e inferior)
+    altura, anchura = mascara_binaria.shape
+    mitad_superior = mascara_binaria[:altura // 2, :]
+    
+    # Si la altura es impar, recortamos un píxel de la mitad inferior
+    if altura % 2 != 0:
+        mitad_inferior = mascara_binaria[altura // 2 + 1:, :]
+    else:
+        mitad_inferior = mascara_binaria[altura // 2:, :]
+
+    # Voltear la mitad inferior verticalmente
+    mitad_inferior_volteada = cv2.flip(mitad_inferior, 0)
+
+    # Calcular la diferencia entre las dos mitades
+    diferencia = cv2.absdiff(mitad_superior, mitad_inferior_volteada)
+
+    # Contar los píxeles diferentes (no coincidentes)
+    pixeles_diferentes = cv2.countNonZero(diferencia)
+    pixeles_totales = mitad_superior.size
+
+    # Calcular el puntaje de simetría
+    simetria = 1 - (pixeles_diferentes / pixeles_totales)
+    
+    return simetria
+
+
+
+def prepare_pose_dataset(segmentation_input, output_directory, output_name, train_pct=60, val_pct=20, test_pct=20):
+    """
+    Prepara el dataset de pose, dividiendo las imágenes generadas en carpetas `train`, `val` y `test`
+    dentro de la carpeta `elements_for_pose_{output_name}` según los porcentajes proporcionados.
+    
+    :param segmentation_input: Lista de imágenes con sus respectivos contornos y predicciones
+    :param output_directory: Directorio de salida principal
+    :param output_name: Nombre para las imágenes exportadas
+    :param train_pct: Porcentaje de las imágenes a usar para el conjunto de entrenamiento
+    :param val_pct: Porcentaje de las imágenes a usar para el conjunto de validación
+    :param test_pct: Porcentaje de las imágenes a usar para el conjunto de prueba
+    """
+    
+    # Verificar que los porcentajes sumen 100
+    if train_pct + val_pct + test_pct != 100:
+        raise ValueError("Los porcentajes de train, val y test deben sumar 100.")
+    
+    # Calcular cuántas imágenes van a ir a cada conjunto
+    train_images = []
+    val_images = []
+    test_images = []
+
+    # Ruta principal donde se guardarán las carpetas `train`, `val`, `test`
+    base_output_dir = os.path.join(output_directory, f"elements_for_pose_{output_name}")
+    
+    # Crear las carpetas dentro de la ruta base
+    train_dir = os.path.join(base_output_dir, 'train')
+    val_dir = os.path.join(base_output_dir, 'val')
+    test_dir = os.path.join(base_output_dir, 'test')
+
+    # Crear directorios si no existen
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(val_dir, exist_ok=True)
+    os.makedirs(test_dir, exist_ok=True)
+
+    # Usar un índice para las imágenes generadas
+    for picture in segmentation_input:
+        name_pic = os.path.basename(picture[1])
+        mask_contours_list = picture[0].object_prediction_list
+        almonds = cv2.imread(picture[1])  # Leer la imagen original
+
+        # Contador de elementos procesados por imagen
+        count = 1
+        for contour in mask_contours_list:
+            contour = contour.mask.segmentation[0]
+            array_contour = np.array(contour)
+            array_contour = array_contour.reshape(-1, 2)
+            contour_pixels = array_contour.astype(np.int32)
+            contour = contour_pixels.reshape((-1, 1, 2))
+            
+            # Obtener el bounding box del contorno
+            x, y, w, h = cv2.boundingRect(contour)
+            
+            # Recortar la imagen original usando el bounding box
+            roi = almonds[y:y+h, x:x+w]
+
+            # Crear una máscara que tenga el mismo tamaño que el ROI y que sea de color negro
+            mask = np.zeros_like(roi)
+
+            # Dibujamos los contornos sobre la máscara (en blanco)
+            cv2.drawContours(mask, [contour - np.array([x, y])], -1, (255, 255, 255), thickness=cv2.FILLED)
+
+            # Aplicamos la máscara sobre el ROI para extraer la región con el relleno original
+            result = cv2.bitwise_and(roi, mask)
+
+            # Generamos la ruta de salida dentro de `elements_for_pose_{output_name}`
+            output_path = os.path.join(base_output_dir, f"{name_pic}_{count}.jpg")
+            cv2.imwrite(output_path, result)  # Guardar la imagen
+            count += 1
+
+            # Aleatoriamente asignamos la imagen a uno de los conjuntos
+            rand_val = random.randint(1, 100)  # Generar un número aleatorio entre 1 y 100
+
+            if rand_val <= train_pct:
+                train_images.append(output_path)
+            elif rand_val <= train_pct + val_pct:
+                val_images.append(output_path)
+            else:
+                test_images.append(output_path)
+
+    # Mover las imágenes a las respectivas carpetas
+    for img_path in train_images:
+        shutil.move(img_path, os.path.join(train_dir, os.path.basename(img_path)))
+
+    for img_path in val_images:
+        shutil.move(img_path, os.path.join(val_dir, os.path.basename(img_path)))
+
+    for img_path in test_images:
+        shutil.move(img_path, os.path.join(test_dir, os.path.basename(img_path)))
+
+    print(f"Dataset preparado: {len(train_images)} imágenes en train, {len(val_images)} en val, {len(test_images)} en test.")
+        
+        
