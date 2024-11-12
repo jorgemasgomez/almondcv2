@@ -5,7 +5,7 @@ library(Momocs)
 args <- commandArgs(trailingOnly = TRUE)
 
 # Comprobar si se han pasado suficientes argumentos
-if (length(args) >= 7) {
+if (length(args) >= 10) {
 ruta_outline_objects<-args[1]
 nharmonics<-as.numeric(args[2])
 output_directory <- args[3] 
@@ -13,6 +13,10 @@ img_width_boxplot <- as.numeric(args[4])    # Ancho de la imagen para el panel
 img_height_boxplot <- as.numeric(args[5])
 img_width_pca <- as.numeric(args[6])    # Ancho de la imagen para el panel
 img_height_pca <- as.numeric(args[7])
+normalize <- as.logical(args[8])
+start_point <- as.logical(args[9])
+allign_x <- as.logical(args[10])
+
 } else {
   stop("No se pasaron suficientes argumentos.")
 }
@@ -22,7 +26,13 @@ if (!dir.exists(output_folder)) {
 }
 outlines_objects <- readRDS(ruta_outline_objects)
 
-e_fourier_contours <- efourier(outlines_objects, nb.h=nharmonics)
+if (allign_x) {
+  outlines_objects <- coo_slidedirection(outlines_objects, direction = "right", center = TRUE)
+  outlines_objects <- coo_alignxax(outlines_objects)
+}
+
+
+e_fourier_contours <- efourier(outlines_objects, nb.h=nharmonics, norm = normalize, start = start_point)
 write.table(e_fourier_contours$coe, 
             file = file.path(output_folder, "e_fourier_coefs.txt"), 
             sep = "\t", 

@@ -144,7 +144,7 @@ def exploratory_morphometrics_r(
 
 def run_efourier_pca_morphometrics_r(ruta_outline_objects, nharmonics, output_directory, 
                                       img_width_boxplot=750, img_height_boxplot=500, 
-                                      img_width_pca=750, img_height_pca=500, show=False):
+                                      img_width_pca=750, img_height_pca=500, show=False, normalize="FALSE", start_point="FALSE", allign_x="TRUE"):
     """
     Ejecuta el script de R "efourier_morphometrics.R" con los argumentos proporcionados.
 
@@ -176,7 +176,10 @@ def run_efourier_pca_morphometrics_r(ruta_outline_objects, nharmonics, output_di
         str(img_width_boxplot),  # Ancho del boxplot
         str(img_height_boxplot), # Alto del boxplot
         str(img_width_pca),     # Ancho de la imagen PCA
-        str(img_height_pca)    # Alto de la imagen PCA
+        str(img_height_pca),
+        str(normalize),
+        str(start_point),
+        str(allign_x)
     ]
 
     # Ejecutar el comando con subprocess
@@ -200,6 +203,140 @@ def run_efourier_pca_morphometrics_r(ruta_outline_objects, nharmonics, output_di
                 plt.imshow(img)
                 plt.axis('off')  # Desactivar los ejes
                 plt.show()
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error al ejecutar el script R: {e.stderr}")
+
+
+
+
+def run_plot_pca_morphometrics_r(ruta_pca_objects, output_directory, img_width_pca=750, img_height_pca=500, 
+                                 grouping_factor="", PC_axis1=1, PC_axis2=2, 
+                                 chull_layer="FALSE", chullfilled_layer="FALSE", show=True):
+    """
+    Ejecuta el script de R "plot_pca_morphometrics.R" con los argumentos proporcionados.
+
+    Parámetros:
+    - ruta_pca_objects (str): Ruta al archivo RDS con el objeto PCA.
+    - output_directory (str): Directorio de salida donde se guardarán los resultados.
+    - img_width_pca (int): Ancho de la imagen para el gráfico PCA.
+    - img_height_pca (int): Alto de la imagen para el gráfico PCA.
+    - grouping_factor (str): Factor de agrupamiento opcional para la visualización PCA.
+    - PC_axis1 (int): Eje principal de la PCA en el gráfico (por defecto, 1).
+    - PC_axis2 (int): Eje secundario de la PCA en el gráfico (por defecto, 2).
+    - chull_layer (str): Si es "TRUE", añade una capa convex hull.
+    - chullfilled_layer (str): Si es "TRUE", añade una capa convex hull llena.
+    - show (bool): Si es True, muestra el gráfico PCA generado con matplotlib.
+    """
+
+    # Verificar que el directorio de salida existe, si no, crearlo
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Ruta del script R
+    script_r_path = "plot_pca_morphometrics.R"
+
+    # Crear el comando para ejecutar el script R con los argumentos
+    command = [
+        'Rscript', 
+        script_r_path, 
+        str(ruta_pca_objects),      # Ruta al archivo RDS con el objeto PCA
+        str(output_directory),      # Directorio de salida
+        str(img_width_pca),         # Ancho de la imagen PCA
+        str(img_height_pca),        # Alto de la imagen PCA
+        str(grouping_factor),       # Factor de agrupamiento opcional
+        str(PC_axis1),              # Eje PC1
+        str(PC_axis2),                      # Eje PC2
+        str(chull_layer),           # Capa de convex hull
+        str(chullfilled_layer)      # Capa de convex hull llena
+    ]
+
+    # Ejecutar el comando con subprocess
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        
+        # Mostrar la salida del comando R
+        print("Salida del comando R:")
+        print(result.stdout)
+
+        # Mostrar cualquier error si ocurre
+        if result.stderr:
+            print("Error:")
+            print(result.stderr)
+
+        # Si 'show' es True, intentar mostrar el gráfico PCA
+        pca_image_path = os.path.join(output_directory, "efourier_results", "pca_plot.png")
+        if show and os.path.exists(pca_image_path):
+            img = mpimg.imread(pca_image_path)
+            plt.imshow(img)
+            plt.axis('off')  # Desactivar los ejes
+            plt.show()
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error al ejecutar el script R: {e.stderr}")
+
+
+import subprocess
+import os
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+
+def run_kmeans_efourier_r(ruta_pca_objects, output_directory, max_clusters, img_width_pca=750, img_height_pca=500,
+                          plot_xlim=500, plot_ylim=500, show=True):
+    """
+    Ejecuta el script de R "kmeans_Efourier_morphometric.R" con los argumentos proporcionados.
+
+    Parámetros:
+    - ruta_pca_objects (str): Ruta al archivo RDS con el objeto PCA.
+    - output_directory (str): Directorio de salida donde se guardarán los resultados.
+    - max_clusters (int): Número máximo de clusters a utilizar en k-means.
+    - img_width_pca (int): Ancho de la imagen para el gráfico PCA.
+    - img_height_pca (int): Alto de la imagen para el gráfico PCA.
+    - plot_xlim (int): Límite del gráfico en el eje X.
+    - plot_ylim (int): Límite del gráfico en el eje Y.
+    - show (bool): Si es True, muestra el gráfico generado con matplotlib.
+    """
+    
+    # Verificar que el directorio de salida exista, si no, crearlo
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Ruta del script R
+    script_r_path = "kmeans_efourier_morphometrics.R"
+    
+    # Crear el comando para ejecutar el script R con los argumentos
+    command = [
+        'Rscript',
+        script_r_path,
+        str(ruta_pca_objects),      # Ruta al archivo RDS con el objeto PCA
+        str(output_directory),      # Directorio de salida
+        str(img_width_pca),         # Ancho de la imagen PCA
+        str(img_height_pca),        # Alto de la imagen PCA
+        str(max_clusters),          # Número máximo de clusters
+        str(plot_xlim),             # Límite en X
+        str(plot_ylim)              # Límite en Y
+    ]
+
+    # Ejecutar el comando con subprocess
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        
+        # Mostrar la salida del comando R
+        print("Salida del comando R:")
+        print(result.stdout)
+
+        # Mostrar cualquier error si ocurre
+        if result.stderr:
+            print("Error:")
+            print(result.stderr)
+
+        # Si 'show' es True, intentar mostrar los gráficos generados
+        pca_image_path = os.path.join(output_directory, "kmeans_results", "Elbow_method_plot.jpg")
+        if show and os.path.exists(pca_image_path):
+            img = mpimg.imread(pca_image_path)
+            plt.imshow(img)
+            plt.axis('off')  # Desactivar los ejes
+            plt.show()
 
     except subprocess.CalledProcessError as e:
         print(f"Error al ejecutar el script R: {e.stderr}")
