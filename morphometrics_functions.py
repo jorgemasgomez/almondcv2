@@ -3,6 +3,7 @@ import os
 from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import re
 
 def install_morphometrics_packages_r():
     # Ruta al archivo de script R que instalará los paquetes
@@ -276,11 +277,6 @@ def run_plot_pca_morphometrics_r(ruta_pca_objects, output_directory, img_width_p
         print(f"Error al ejecutar el script R: {e.stderr}")
 
 
-import subprocess
-import os
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-
 def run_kmeans_efourier_r(ruta_pca_objects, output_directory, max_clusters, img_width_pca=750, img_height_pca=500,
                           plot_xlim=500, plot_ylim=500, show=True):
     """
@@ -314,7 +310,7 @@ def run_kmeans_efourier_r(ruta_pca_objects, output_directory, max_clusters, img_
         str(img_height_pca),        # Alto de la imagen PCA
         str(max_clusters),          # Número máximo de clusters
         str(plot_xlim),             # Límite en X
-        str(plot_ylim)              # Límite en Y
+        str(plot_ylim),           # Límite en Y
     ]
 
     # Ejecutar el comando con subprocess
@@ -331,9 +327,147 @@ def run_kmeans_efourier_r(ruta_pca_objects, output_directory, max_clusters, img_
             print(result.stderr)
 
         # Si 'show' es True, intentar mostrar los gráficos generados
+        
+        # Nombre de la imagen final del mosaico
+        nombre_mosaico = os.path.join(output_directory,"kmeans_results",'kmeans_shape_plot.jpg')
+        ruta_carpeta = os.path.join(output_directory, "kmeans_results")
+        
+        # Obtener y ordenar las imágenes por su nombre
+        imagenes = sorted(os.listdir(ruta_carpeta))
+
+        # Cargar todas las imágenes en un diccionario organizado por escenario (k)
+        imagenes_dict = {}
+
+        # Expresión regular para verificar el formato del nombre de archivo
+        pattern = r"centroides_k(\d+)_cluster_(\d+)\.jpg"
+
+        for imagen in imagenes:
+            if imagen.endswith('.jpg'):
+                # Usar la expresión regular para extraer los números de k y y
+                match = re.match(pattern, imagen)
+                if match:
+                    k = int(match.group(1))  # Obtiene el número de clusters (k)
+                    y = int(match.group(2))  # Obtiene el número del cluster (y)
+                    
+                    # Añadir la imagen al diccionario
+                    if k not in imagenes_dict:
+                        imagenes_dict[k] = []
+                    imagenes_dict[k].append((y, os.path.join(ruta_carpeta, imagen)))
+                else:
+                    print(f"Advertencia: archivo {imagen} no cumple con el formato esperado.")
+                    continue
+
+        # Ordenar los clusters dentro de cada k
+        for k in imagenes_dict:
+            imagenes_dict[k].sort()  # Ordena las imágenes por el índice y dentro de cada k
+
+        # Cargar las imágenes y calcular dimensiones del mosaico
+        imagenes_cargadas = {k: [Image.open(imagen[1]) for imagen in imagenes_dict[k]] for k in imagenes_dict}
+        ancho, alto = imagenes_cargadas[1][0].size  # Asumimos que todas las imágenes tienen el mismo tamaño
+        alto_total = sum([alto for k in imagenes_cargadas])  # Altura total del mosaico
+        ancho_maximo = max([ancho * len(imagenes_cargadas[k]) for k in imagenes_cargadas])  # Ancho máximo del mosaico
+
+        # Crear imagen en blanco para el mosaico
+        mosaico = Image.new('RGB', (ancho_maximo, alto_total), (255, 255, 255))
+
+        # Colocar las imágenes en el mosaico
+        y_offset = 0
+        for k in sorted(imagenes_cargadas):
+            x_offset = 0
+            for img in imagenes_cargadas[k]:
+                mosaico.paste(img, (x_offset, y_offset))
+                x_offset += ancho
+            y_offset += alto
+
+        # Guardar
+        mosaico.save(nombre_mosaico)
+        
+
+        # Eliminar las imágenes utilizadas
+        for k in imagenes_dict:
+            for _, ruta_imagen in imagenes_dict[k]:
+                os.remove(ruta_imagen)  # Elimina cada imagen utilizada en el mosaico
+                print(f"Eliminada: {ruta_imagen}")
+
+        
+        
+        if show and os.path.exists(nombre_mosaico):
+            img = mpimg.imread(nombre_mosaico)
+            plt.imshow(img)
+            plt.axis('off')  # Desactivar los ejes
+            plt.show()
+
         pca_image_path = os.path.join(output_directory, "kmeans_results", "Elbow_method_plot.jpg")
         if show and os.path.exists(pca_image_path):
             img = mpimg.imread(pca_image_path)
+            plt.imshow(img)
+            plt.axis('off')  # Desactivar los ejes
+            plt.show()
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error al ejecutar el script R: {e.stderr}")
+
+
+
+
+def run_obtain_kmeans_classification_r(ruta_pca_objects, output_directory, img_width=750, img_height=500, 
+                                       ruta_kmeans_objects="", PC_axis1=1, PC_axis2=2, 
+                                       chull_layer="FALSE", chullfilled_layer="FALSE", show=True):
+    """
+    Ejecuta el script de R "Obtain_kmeans_classification.R" con los argumentos proporcionados.
+
+    Parámetros:
+    - ruta_pca_objects (str): Ruta al archivo RDS con el objeto PCA.
+    - output_directory (str): Directorio de salida donde se guardarán los resultados.
+    - img_width (int): Ancho de la imagen para el gráfico de clustering.
+    - img_height (int): Alto de la imagen para el gráfico de clustering.
+    - ruta_kmeans_objects (str): Ruta al archivo RDS con el objeto de clustering K-means.
+    - PC_axis1 (int): Eje principal de la PCA en el gráfico (por defecto, 1).
+    - PC_axis2 (int): Eje secundario de la PCA en el gráfico (por defecto, 2).
+    - chull_layer (str): Si es "TRUE", añade una capa convex hull.
+    - chullfilled_layer (str): Si es "TRUE", añade una capa convex hull llena.
+    - show (bool): Si es True, muestra el gráfico de clustering generado con matplotlib.
+    """
+
+    # Verificar que el directorio de salida existe, si no, crearlo
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Ruta del script R
+    script_r_path = "Obtain_kmeans_classification.R"
+
+    # Crear el comando para ejecutar el script R con los argumentos
+    command = [
+        'Rscript', 
+        script_r_path, 
+        str(ruta_pca_objects),      # Ruta al archivo RDS con el objeto PCA
+        str(output_directory),      # Directorio de salida
+        str(img_width),             # Ancho de la imagen
+        str(img_height),            # Alto de la imagen
+        str(ruta_kmeans_objects),   # Ruta al archivo RDS del objeto kmeans
+        str(PC_axis1),              # Eje PC1
+        str(PC_axis2),              # Eje PC2
+        str(chull_layer),           # Capa de convex hull
+        str(chullfilled_layer)      # Capa de convex hull llena
+    ]
+
+    # Ejecutar el comando con subprocess
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        
+        # Mostrar la salida del comando R
+        print("Salida del comando R:")
+        print(result.stdout)
+
+        # Mostrar cualquier error si ocurre
+        if result.stderr:
+            print("Error:")
+            print(result.stderr)
+
+        # Si 'show' es True, intentar mostrar el gráfico de clustering
+        clustered_image_path = os.path.join(output_directory, "kmeans_results", "pca_plot_clustered.png")
+        if show and os.path.exists(clustered_image_path):
+            img = mpimg.imread(clustered_image_path)
             plt.imshow(img)
             plt.axis('off')  # Desactivar los ejes
             plt.show()

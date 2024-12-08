@@ -24,9 +24,7 @@ if (!dir.exists(output_folder)) {
 }
 pca_fourier <- readRDS(ruta_pca_objects)
 
-
-# Solicitar al usuario el número máximo de clusters
-
+nb_h <- as.numeric(length(pca_fourier$eig)/4)
 
 # Inicializamos la lista para almacenar las formas reconstruidas de los centroides
 centroid_shapes <- list()
@@ -37,7 +35,7 @@ for (num_clusters in 1:max_clusters) {
   
   # Realizar kmeans con el número actual de clusters
   kmeans_result <- kmeans(pca_fourier$x, centers=num_clusters)
-  saveRDS(pca_fourier, file = file.path(output_folder, paste0("pca_fourier_",num_clusters,".rds")))
+  saveRDS(kmeans_result , file = file.path(output_folder, paste0("kmeans_pca_fourier_",num_clusters,".rds")))
   wss_values[num_clusters] <- kmeans_result$tot.withinss  # Suma de los errores cuadrados dentro de los clusters
   centroids_pca <- kmeans_result$centers
   
@@ -54,7 +52,7 @@ for (num_clusters in 1:max_clusters) {
     reconstructed_coef <- as.vector(pca_fourier$rotation %*% projections) + pca_fourier$mshape
     
     # Número de armónicos (ajusta según tu caso)
-    nb_h <- 10  # Cambia este valor si usaste un número diferente de armónicos
+     # Cambia este valor si usaste un número diferente de armónicos
     
     # Divide los coeficientes reconstruidos en an, bn, cn, dn
     an <- reconstructed_coef[1:nb_h]
