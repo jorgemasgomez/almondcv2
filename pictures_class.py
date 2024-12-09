@@ -9,6 +9,7 @@ import imutils
 from imutils import perspective
 from scipy.spatial import distance as dist
 import pandas as pd
+import shutil
 
 class pictures():
     def __init__(self, working_directory, input_folder,info_file,fruit, project_name,
@@ -31,6 +32,9 @@ class pictures():
         self.path_export_3=os.path.join(self.results_directory, "pic_results")
         self.path_export_4=os.path.join(self.results_directory, "binary_masks")
         self.path_export_5=os.path.join(self.results_directory,"binary_masks_info_table.txt")
+        self.path_export_outlier=os.path.join(self.results_directory,"outlier_table.txt")
+        self.path_export_error=os.path.join(self.results_directory,"errors_table.txt")
+        self.path_export_outlier_folder=os.path.join(self.results_directory, "outliers_pics")
         os.makedirs(self.path_export_3, exist_ok=True)
         os.makedirs(self.path_export_4, exist_ok=True)
 
@@ -57,7 +61,7 @@ class pictures():
         
         
         general_table=pd.DataFrame()
-        general_table = pd.DataFrame(columns=["Name_picture","Sample_number","ID","Weight","Session","Shell","Pixelmetric","Sample_picture","N_fruits","Weight_per_fruit"])
+        general_table = pd.DataFrame(columns=["Name_picture","Sample_number","ID","Weight","Session","Shell","Pixelmetric","Sample_picture","N_fruits"])
         
         
         self.margin=margin
@@ -463,10 +467,9 @@ class pictures():
 
                                 cv2.imwrite(f'{self.path_export_4}/{name_pic}_{count}.jpg', imagen_final)
                             except Exception as e:
-                
                                 print(f"Error with picture {name_pic}", f"Fruit number: {count}", e)
-                                error_list.append(name_pic)
-                                continue
+                                error_list.append([name_pic, count, e])
+                                
 
                     #Write_results
                     row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, width_25[0], width_50[0], width_75[0],area[0], perimeter[0],area_hull[0], solidity[0], circularity, ellipse_rat, ml, ma, mb, simmetry_h, simmetry_v]],
@@ -485,8 +488,6 @@ class pictures():
                 row_general=row_general.values.flatten().tolist()
                 row_general.append(count-1)
 
-                weight = self.info_file.loc[self.info_file['Sample_picture'] == name_pic, 'Weight'].values
-                row_general.append(weight[0]/count-1)
                 row_general=pd.DataFrame([row_general], columns=general_table.columns)
                 general_table=pd.concat([general_table,row_general], ignore_index=True)
 
@@ -528,19 +529,132 @@ class pictures():
                 output_pic=np.concatenate((almonds_maskeadas, measure_pic, widths_pic, circ_pic, elipse_pic), axis=1)
                 cv2.imwrite(f"{self.path_export_3}/rs_{name_pic}", output_pic)
             except Exception as e:
-                
                 print(f"Error with picture {name_pic}", e)
-                error_list.append(name_pic)
-                continue
+                error_list.append([name_pic, "General", e])
+                
         morphology_table = pd.merge(morphology_table, general_table[['Sample_picture', 'ID']], left_on='Sample_picture', right_on='Sample_picture', how='left')
         if self.binary_masks is True:
             binary_table = morphology_table[['Sample_picture', 'ID', 'Fruit_number']]
             binary_table['Binary_mask_picture'] = binary_table['Sample_picture'] + '_' + binary_table['Fruit_number'].astype(str)
             binary_table = binary_table[['Binary_mask_picture', 'ID']]
             binary_table.to_csv(self.path_export_5, mode='w', header=True, index=False, sep='\t')
+            self.binary_table=binary_table
 
         morphology_table.to_csv(self.path_export_1, mode='w', header=True, index=False, sep='\t')
         general_table.to_csv(self.path_export_2, mode='w', header=True, index=False, sep='\t')
 
+        self.morphology_table=morphology_table
+        self.general_table=general_table
+
+        #####OUTLIER DETECTION #############
+        # Define las columnas que deseas en el DataFrame
+        columns = ["Sample_picture", "Fruit_number", "Cause"]
+
+        # Convierte la lista a un DataFrame
+        error_df = pd.DataFrame(error_list, columns=columns)
+        error_df.to_csv(self.path_export_error, mode='w', header=True, index=False, sep='\t')
+
+        outlier_df=pd.DataFrame()
+        outlier_df = pd.DataFrame(columns=["Sample_picture","Fruit_number", "Causes"])
+
+        # Define las columnas a analizar
+        columns_to_check = ["Width_25", "Width_75", "Area", "Circularity", "Symmetry_v", "Symmetry_h"]
+
+        
+        # Agrupa por Sample_picture y analiza cada grupo
+        for sample_picture, group in self.morphology_table.groupby("Sample_picture"):
+            # Itera por las columnas a analizar
+            for col in columns_to_check:
+                # Calcula la media y la desviación estándar
+                mean = group[col].mean()
+                std_dev = group[col].std()
+                
+                # Define los límites para identificar outliers
+                lower_bound = mean - 3 * std_dev
+                upper_bound = mean + 3 * std_dev
+
+                # Filtra los outliers
+                outliers = group[(group[col] < lower_bound) | (group[col] > upper_bound)]
+
+                # Agrega las filas de outliers al DataFrame de resultados
+                for idx, row in outliers.iterrows():
+                    fruit_number = row["Fruit_number"]
+                    # Si ya existe en outlier_df, agrega la nueva causa
+                    if ((outlier_df["Sample_picture"] == sample_picture) & (outlier_df["Fruit_number"] == fruit_number)).any():
+                        # Encuentra la fila correspondiente
+                        current_index = outlier_df[(outlier_df["Sample_picture"] == sample_picture) & (outlier_df["Fruit_number"] == fruit_number)].index[0]
+                        outlier_df.at[current_index, "Causes"] += f", {col}"
+                    else:
+                        # Crea una nueva entrada
+                        outlier_df = pd.concat([
+                            outlier_df,
+                            pd.DataFrame({
+                                "Sample_picture": [sample_picture],
+                                "Fruit_number": [fruit_number],
+                                "Causes": [col]
+                            })
+                        ], ignore_index=True)
+
+
+
         print(error_list)
-         
+        print(outlier_df)
+        outlier_df.to_csv(self.path_export_outlier, mode='w', header=True, index=False, sep='\t')
+        if not os.path.exists(self.path_export_outlier_folder):
+            os.makedirs(self.path_export_outlier_folder)
+
+        # Iterar sobre las filas de outlier_df
+        for _, row in outlier_df.iterrows():
+            sample_picture = row["Sample_picture"]
+             # Añadir el prefijo 'rs_' al nombre del archivo
+            sample_picture = f"rs_{sample_picture}"
+            # Construir la ruta de la imagen original
+            image_path = os.path.join(self.path_export_3, sample_picture)
+            
+            # Verificar si la imagen existe antes de copiarla
+            if os.path.exists(image_path):
+                # Construir la ruta de destino en la carpeta outliers_pictures
+                destination = os.path.join(self.path_export_outlier_folder, sample_picture)
+                
+                # Copiar la imagen con el nuevo nombre
+                shutil.copy(image_path, destination)
+            else:
+                print(f"Advertencia: La imagen {sample_picture} no se encuentra en {self.path_export_3}")
+                
+        
+        #crear función corrige outliers en outputs general table,  binary masks y output image
+
+
+    def correct_outliers(self, outlier_file):
+        outlier_df_2 = pd.read_csv(outlier_file, delimiter="\t")
+
+        #ELIMINAR DE MORPHOLOGY TABLE
+        # Filtramos el DataFrame morphology_table para eliminar las filas que tengan combinaciones de Sample_picture y Fruit_number en outlier_df
+        morphology_table_cleaned = self.morphology_table[~self.morphology_table[['Sample_picture', 'Fruit_number']].apply(tuple, 1).isin(outlier_df_2[['Sample_picture', 'Fruit_number']].apply(tuple, 1))]
+        # Verificamos el resultado
+        morphology_table_cleaned.to_csv(self.path_export_1, mode='w', header=True, index=False, sep='\t')
+        
+        #ELIMINAR DE LA TABLA DE BINARY
+        # Crear una columna temporal en el DataFrame de outliers con la forma de los valores en Binary_mask_picture
+        
+        outlier_df_2['Binary_mask_picture'] = outlier_df_2['Sample_picture'] + "_" + outlier_df_2['Fruit_number'].astype(str)
+
+        # Filtrar el DataFrame de binary masks para eliminar las filas que coincidan con los valores en outlier_df
+        binary_table_cleaned = self.binary_table[~self.binary_table['Binary_mask_picture'].isin(outlier_df_2['Binary_mask_picture'])]
+        binary_table_cleaned.to_csv(self.path_export_5, mode='w', header=True, index=False, sep='\t')
+        
+        #ELIMINAR LAS BINARY MASKS
+        # Crear la lista de máscaras a eliminar a partir de outlier_df
+        outlier_df_2['Mask_filename'] = outlier_df_2['Sample_picture'] + "_" + outlier_df_2['Fruit_number'].astype(str) + ".jpg"
+
+        # Iterar sobre los archivos en la carpeta de máscaras
+        for mask_filename in os.listdir(self.path_export_4):
+            # Verificar si el archivo está en la lista de máscaras a eliminar
+            if mask_filename in outlier_df_2['Mask_filename'].values:
+                # Construir la ruta completa del archivo
+                file_path = os.path.join(self.path_export_4, mask_filename)
+                # Eliminar el archivo
+                os.remove(file_path)
+                print(f"Archivo eliminado: {mask_filename}")
+        print(" PLEASE CHECK NUMBER OF FRUITS IN GENERAL TABLE IF YOU ARE WANT WEIGHT.")
+
