@@ -51,7 +51,9 @@ class pictures():
     
     def measure_almonds(self, margin=100, spacing=30):
         morphology_table=pd.DataFrame()
-        morphology_table = pd.DataFrame(columns=["Project_name","Sample_picture","Fruit_name", "Fruit_number","Length","Width","Area", "Perimeter","Hull_area","Solidity","Circularity","Ellipse_Ratio","L","a","b"])
+        morphology_table = pd.DataFrame(columns=["Project_name","Sample_picture","Fruit_name", "Fruit_number",
+                                                 "Length","Width","Width_25","Width_50","Width_75","Area", "Perimeter","Hull_area",
+                                                 "Solidity","Circularity","Ellipse_Ratio","L","a","b","Symmetry_v", "Symmetry_h"])
         
         
         general_table=pd.DataFrame()
@@ -371,8 +373,8 @@ class pictures():
 
                     ############### Symmetry x and y ##########################
                     
-                    # simmetry_v=calcular_simetria_vertical(ROI)
-                    # simmetry_h=calcular_simetria_horizontal(ROI)
+                    simmetry_v=calcular_simetria_vertical(ROI)
+                    simmetry_h=calcular_simetria_horizontal(ROI)
 
                     # cv2.line(symmetry_pic, (xb, yb + h_50), (xb + w, yb + h_50), verde, 1)
                     # cv2.line(symmetry_pic, (xb+int(w/2), yb), (xb + int(w/2), yb + h), verde, 1)
@@ -467,7 +469,7 @@ class pictures():
                                 continue
 
                     #Write_results
-                    row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, area[0], perimeter[0],area_hull[0], solidity[0], circularity, ellipse_rat, ml, ma, mb]],
+                    row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, width_25[0], width_50[0], width_75[0],area[0], perimeter[0],area_hull[0], solidity[0], circularity, ellipse_rat, ml, ma, mb, simmetry_h, simmetry_v]],
                                     columns=morphology_table.columns)
                     
                     morphology_table = pd.concat([morphology_table, row], ignore_index=True)
@@ -542,16 +544,3 @@ class pictures():
 
         print(error_list)
          
-          
-            
-            
-
-
-
-
-
-
-
-
-
-

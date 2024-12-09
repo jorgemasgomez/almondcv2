@@ -140,12 +140,17 @@ class model_segmentation():
         for pic in image_list:
             print(f"Pic {i}/{len(image_list)}")
 
-
-            result=get_sliced_prediction(
-                image=pic , detection_model=detection_model_seg, slice_height=slice_height,
-            slice_width=slice_width, overlap_height_ratio=overlap_height_ratio, overlap_width_ratio=overlap_width_ratio,
-            postprocess_type=postprocess_type, postprocess_match_metric=postprocess_match_metric,
-              postprocess_match_threshold=postprocess_match_threshold, perform_standard_pred=True)
+            try:
+                result=get_sliced_prediction(
+                    image=pic , detection_model=detection_model_seg, slice_height=slice_height,
+                slice_width=slice_width, overlap_height_ratio=overlap_height_ratio, overlap_width_ratio=overlap_width_ratio,
+                postprocess_type=postprocess_type, postprocess_match_metric=postprocess_match_metric,
+                postprocess_match_threshold=postprocess_match_threshold, perform_standard_pred=True)
+            except Exception as e:
+                print(f"Error processing segmentation image {pic}: {e}")
+                continue
+            
+            torch.cuda.empty_cache()
             # https://github.com/obss/sahi/blob/main/sahi/predict.py se pueden utilizar varios preprocesados, por si hay que probar
             results_list.append([result, pic])
             i=i+1
