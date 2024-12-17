@@ -1,6 +1,6 @@
 #PLOT PCA
 
-ibrary(Momocs)
+library(Momocs)
 # Cargar el objeto PCA desde el archivo .rds
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -11,9 +11,9 @@ if (length(args) >= 4) {
   output_directory <- args[2] 
   img_width_pca <- as.numeric(args[3])    # Ancho de la imagen para el panel
   img_height_pca <- as.numeric(args[4])
-  grouping_factor<- as.factor(args[5])
-  PC_axis1 <-as.factor(args[6])
-  PC_axis2 <-as.factor(args[7])
+  grouping_factor<- args[5]
+  PC_axis1 <-as.numeric(args[6])
+  PC_axis2 <-as.numeric(args[7])
 
   
 } else {
@@ -30,9 +30,14 @@ png(filename = file.path(output_folder, "pca_plot.png"),
     width = img_width_pca, 
     height = img_height_pca)
 
+if (nzchar(grouping_factor) > 0) {
+  # Si el archivo existe y no está vacío, cargarlo
+  grouping_factor<- as.factor(grouping_factor)
+  plot_PCA(pca_fourier,f = grouping_factor, axes = c(PC_axis1, PC_axis2))
+  
+} else {
+  plot_PCA(pca_fourier, axes = c(PC_axis1, PC_axis2))
 
-plot_PCA(pca_fourier,f = grouping_factor, axes = c(PC_axis1, PC_axis2))
-
-
+}
 
 dev.off()

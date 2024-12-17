@@ -13,7 +13,7 @@ import shutil
 
 class pictures():
     def __init__(self, working_directory, input_folder,info_file,fruit, project_name,
-                 binary_masks=False, blurring_binary_masks=True, blur_binary_masks_value=5):
+                 binary_masks=False, blurring_binary_masks=False, blur_binary_masks_value=5):
         self.working_directory=working_directory
         self.input_folder=input_folder
         self.info_file=info_file
@@ -154,7 +154,7 @@ class pictures():
                 spacing_y = max_height + spacing
                 
                 num_rows = int((height_pic - 2 * self.margin) / spacing_y)
-                num_columns = int((len(mask_contours_list) + num_rows - 1) // num_rows)
+                num_columns = int((len(self.mask_contours_list) + num_rows - 1) // num_rows)
                 width = num_columns * spacing_x + 2 * margin
                 image_base= np.zeros((height_pic, width, 3), dtype=np.uint8)
                 # Generar centros de la cuadrícula
@@ -203,6 +203,14 @@ class pictures():
                     cnt_norm[:, 0, 1] = ys
                     cnt_rotated = cnt_norm + [cx, cy]
                     cnt_rotated = cnt_rotated.astype(np.int32)
+
+                    #PONEMOS AQUI LA MASCARA PARA HACERLO MAS EFICIENTE Y SABER SI HAY QUE GIRARLO O NO
+
+                    
+
+
+
+
                     
 
                     #calculamos desplazamiento 
@@ -433,37 +441,49 @@ class pictures():
                     if self.binary_masks==True:
                             try:
                         # Obtener la bounding box del contorno    
+                                # Obtener la bounding box del contorno    
                                 mascara = np.ones(image_base.shape[:2], dtype=np.uint8) * 255  # Máscara blanca
-
+                                cnt_rotated = cv2.approxPolyDP(cnt_rotated, epsilon=1.0, closed=True)
                                 # Dibujar el contorno en la máscara, rellenar el interior de negro
                                 cv2.drawContours(mascara, [cnt_rotated], -1, 0, thickness=cv2.FILLED)  # Rellenar con 0 (negro)
-                                
-
-
 
                                 # Recortar la región de interés (ROI) de la imagen usando la bounding box
                                 ROI = mascara[yb:yb+h, xb:xb+w]                   
-                                
 
-                                factor_escala=1000/ROI.shape[0]
-                                nueva_h=1000
+                                factor_escala = 250 / ROI.shape[0]
+                                nueva_h = 250
                                 nueva_w = int(ROI.shape[1] * factor_escala)
-                                ROI_redimensionada = cv2.resize(ROI, (nueva_w, nueva_h))
+
+                                # Redimensionar usando interpolación nearest-neighbor
+                                ROI_redimensionada = cv2.resize(ROI, (nueva_w, nueva_h), interpolation=cv2.INTER_NEAREST)
+
+                                # Invertir la máscara para que la figura sea blanca (255) y el fondo negro (0)
+                                ROI_invertida = cv2.bitwise_not(ROI_redimensionada)
+
+                                # Crear kernel para erosión y dilatación
+                            
+                                # Suavizar los bordes: primero dilatación, luego erosión
+                                # ROI_dilatada = cv2.dilate(ROI_invertida, rect_kernel, iterations=self.smooting_iterations)  # Expandir bordes de la figura
+                                # ROI_suavizada = cv2.erode(ROI_dilatada, rect_kernel, iterations=self.smooting_iterations)   # Reducir bordes para suavizar
+
+                                # Invertir la máscara de nuevo para restaurar la figura en negro y fondo en blanco
+                                # ROI_final = cv2.bitwise_not(ROI_suavizada)
+                                ROI_final = cv2.bitwise_not(ROI_invertida)
 
                                 # Creamos una imagen de fondo blanco de 1000x1000 píxeles
-                                imagen_final = np.ones((1000, 1000), dtype=np.uint8) * 255
+                                imagen_final = np.ones((250, 250), dtype=np.uint8) * 255
 
-                                # Calculamos las coordenadas para centrar la ROI redimensionada en la imagen final
-                                x_offset = (1000 - nueva_w) // 2
-                                y_offset = (1000 - nueva_h) // 2
+                                # Calculamos las coordenadas para centrar la ROI en la imagen final
+                                x_offset = (250 - nueva_w) // 2
+                                y_offset = (250 - nueva_h) // 2
 
-                                # Insertamos la ROI redimensionada en el fondo blanco
-                                imagen_final[y_offset:y_offset + nueva_h, x_offset:x_offset + nueva_w] = ROI_redimensionada
-                                
-                                if self.blurring_binary_masks is True:# Aplicamos un suavizado gaussiano a la imagen final
+                                # Insertamos la ROI suavizada en el fondo blanco
+                                imagen_final[y_offset:y_offset + nueva_h, x_offset:x_offset + nueva_w] = ROI_final
+
+                                if self.blurring_binary_masks is True:
+                                    # Aplicar suavizado gaussiano si está habilitado
                                     imagen_final = cv2.GaussianBlur(imagen_final, (self.blur_binary_masks_value, self.blur_binary_masks_value), 0)
-
-
+                                
 
                                 cv2.imwrite(f'{self.path_export_4}/{name_pic}_{count}.jpg', imagen_final)
                             except Exception as e:
