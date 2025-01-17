@@ -36,7 +36,7 @@ if (nzchar(grouping_factor) > 0) {
   plot_PCA(pca_fourier,f = grouping_factor, axes = c(PC_axis1, PC_axis2))
   
 } else {
-  plot_PCA(pca_fourier, axes = c(PC_axis1, PC_axis2))
+  plot_PCA(pca_fourier, axes = c(PC_axis1, PC_axis2), points=TRUE)
 
 }
 

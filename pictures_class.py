@@ -10,10 +10,11 @@ from imutils import perspective
 from scipy.spatial import distance as dist
 import pandas as pd
 import shutil
-
+import matplotlib.pyplot as plt
+import traceback
 class pictures():
     def __init__(self, working_directory, input_folder,info_file,fruit, project_name,
-                 binary_masks=False, blurring_binary_masks=False, blur_binary_masks_value=5):
+                 binary_masks=False, blurring_binary_masks=False, blur_binary_masks_value=5, binary_pixel_size=250):
         self.working_directory=working_directory
         self.input_folder=input_folder
         self.info_file=info_file
@@ -21,6 +22,7 @@ class pictures():
         self.binary_masks=binary_masks
         self.blurring_binary_masks=blurring_binary_masks
         self.blur_binary_masks_value=blur_binary_masks_value
+        self.binary_pixel_size=binary_pixel_size
 
 
         self.project_name=project_name
@@ -57,7 +59,7 @@ class pictures():
         morphology_table=pd.DataFrame()
         morphology_table = pd.DataFrame(columns=["Project_name","Sample_picture","Fruit_name", "Fruit_number",
                                                  "Length","Width","Width_25","Width_50","Width_75","Area", "Perimeter","Hull_area",
-                                                 "Solidity","Circularity","Ellipse_Ratio","L","a","b","Symmetry_v", "Symmetry_h"])
+                                                 "Solidity","Circularity","Ellipse_Ratio","L","a","b","Symmetry_v", "Symmetry_h","Shoulder_symmetry"])
         
         
         general_table=pd.DataFrame()
@@ -91,11 +93,13 @@ class pictures():
                     mask=picture[0]
                     if self.smoothing==True:
                         # # # Aplicar operación de apertura para refinar los bordes del contorno
+
                         rect_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (self.smoothing_kernel, self.smoothing_kernel))
                         mask=cv2.erode(mask, rect_kernel, iterations=self.smooting_iterations)
                         mask=cv2.dilate(mask, rect_kernel, iterations=self.smooting_iterations)
 
                     if self.watershed==True:
+                        
                         # # # Aplicar operación de apertura para refinar los bordes del contorno y para quitar ruido
                         rect_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (self.smoothing_kernel, self.smoothing_kernel))
                         mask=cv2.erode(mask, rect_kernel, iterations=self.smooting_iterations)
@@ -133,6 +137,7 @@ class pictures():
                         
                         self.mask_contours_list, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                         almonds=cv2.imread(picture[1])
+                        
                 
 
                 # Buscar la fila que contiene el valor y devolver el valor de 'Pixelmetric'
@@ -172,290 +177,326 @@ class pictures():
                 all_almond_contours=[]
                 count=1
                 for contour in self.mask_contours_list:
-                    
+                    try:
 
 
-                    if cv2.contourArea(contour) < 600:
-                        continue
+                        if cv2.contourArea(contour) < 600:
+                            continue
 
-                    #las funciones fallan si hay un contorno con menos de 5 puntos, suele pasar cuando es pequeño o raro
-                    if  len(contour) < 5:
-                        continue
+                        #las funciones fallan si hay un contorno con menos de 5 puntos, suele pasar cuando es pequeño o raro
+                        if  len(contour) < 5:
+                            continue
 
-                    ############### Length, width , dist_maxima ##########################
-                    (x,y),(MA,ma),angle = cv2.fitEllipse(contour)
-                    rotation_angle= 180-angle
-                    M = cv2.moments(contour)
-                    cx = int(M["m10"] / M["m00"])
-                    cy = int(M["m01"] / M["m00"])
-                    cnt_norm = contour-[cx, cy]
+                        ############### Length, width , dist_maxima ##########################
+                        (x,y),(MA,ma),angle = cv2.fitEllipse(contour)
+                        rotation_angle= 180-angle
+                        M = cv2.moments(contour)
+                        cx = int(M["m10"] / M["m00"])
+                        cy = int(M["m01"] / M["m00"])
+                        cnt_norm = contour-[cx, cy]
 
-                    coordinates = cnt_norm[:, 0, :]
-                    xs, ys = coordinates[:, 0], coordinates[:, 1]
-                    thetas, rhos = cart2pol(xs, ys)
-                                            
-                    thetas_deg = np.rad2deg(thetas)
-                    thetas_new_deg = (thetas_deg + rotation_angle) % 360
-                    thetas_new = np.deg2rad(thetas_new_deg)
+                        coordinates = cnt_norm[:, 0, :]
+                        xs, ys = coordinates[:, 0], coordinates[:, 1]
+                        thetas, rhos = cart2pol(xs, ys)
+                                                
+                        thetas_deg = np.rad2deg(thetas)
+                        thetas_new_deg = (thetas_deg + rotation_angle) % 360
+                        thetas_new = np.deg2rad(thetas_new_deg)
 
-                    xs, ys = pol2cart(thetas_new, rhos)
-                    cnt_norm[:, 0, 0] = xs
-                    cnt_norm[:, 0, 1] = ys
-                    cnt_rotated = cnt_norm + [cx, cy]
-                    cnt_rotated = cnt_rotated.astype(np.int32)
+                        xs, ys = pol2cart(thetas_new, rhos)
+                        cnt_norm[:, 0, 0] = xs
+                        cnt_norm[:, 0, 1] = ys
+                        cnt_rotated = cnt_norm + [cx, cy]
+                        cnt_rotated = cnt_rotated.astype(np.int32)
+                        #calculamos desplazamiento 
+                        # Calculamos el desplazamiento
+                       
 
-                    #PONEMOS AQUI LA MASCARA PARA HACERLO MAS EFICIENTE Y SABER SI HAY QUE GIRARLO O NO
+                        cx_cen, cy_cen = centers[count-1]
+                        #calculamos desplazamientos para despues
+                        dx = cx_cen - cx  # Desplazamiento en x
+                        dy = cy_cen - cy  # Desplazamiento en y
+                        #rotamos
+                        cnt_rotated= cnt_rotated - [cx, cy] + [cx_cen, cy_cen]
+                        cnt_rotated = cnt_rotated.astype(np.int32)
+                        cx_initial,cy_initial=[cx, cy]
+                        cx, cy=[cx_cen, cy_cen]
 
-                    
-
-
-
-
-                    
-
-                    #calculamos desplazamiento 
-                    # Calculamos el desplazamiento
-
-
-                    cx_cen, cy_cen = centers[count-1]
-                    #calculamos desplazamientos para despues
-                    dx = cx_cen - cx  # Desplazamiento en x
-                    dy = cy_cen - cy  # Desplazamiento en y
-                    #rotamos
-                    cnt_rotated= cnt_rotated - [cx, cy] + [cx_cen, cy_cen]
-                    cnt_rotated = cnt_rotated.astype(np.int32)
-                    cx_initial,cy_initial=[cx, cy]
-                    cx, cy=[cx_cen, cy_cen]
-
-
-                    #calcular punto mas lejano para rotar si estan al reves
-                    dist_maxima = 0
-                    punto_mas_lejano = None
-
-                    for punto in cnt_rotated:
-                        # Coordenadas del punto actual
-                        x, y = punto[0]
-                        # Calcular la distancia euclidiana entre el punto y el centroide
-                        distancia = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
                         
-                        # Si la distancia es la mayor encontrada hasta ahora, actualizamos
-                        if distancia > dist_maxima:
-                            dist_maxima = distancia
-                            punto_mas_lejano = (x, y)
-                    giro=0
-                    if punto_mas_lejano[1] < cy:
-                        # print(count, name_pic)
-                        # Normalizar el contorno restando el centro de masa
-                        contour_centered = cnt_rotated - [cx, cy]
+                        #calcular punto mas lejano para rotar si estan al reves
+                        dist_maxima = 0
+                        punto_mas_lejano = None
 
-                        # Rotar 180º multiplicando por -1
-                        contour_rotated = contour_centered * [-1, -1]
+                        for punto in cnt_rotated:
+                            # Coordenadas del punto actual
+                            x, y = punto[0]
+                            # Calcular la distancia euclidiana entre el punto y el centroide
+                            distancia = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+                            
+                            # Si la distancia es la mayor encontrada hasta ahora, actualizamos
+                            if distancia > dist_maxima:
+                                dist_maxima = distancia
+                                punto_mas_lejano = (x, y)
+                        giro=0
+                        if punto_mas_lejano[1] < cy:
+                            # print(count, name_pic)
+                            # Normalizar el contorno restando el centro de masa
+                            contour_centered = cnt_rotated - [cx, cy]
 
-                        # Volver a trasladar el contorno al centro original
-                        contour_rotated = contour_rotated + [cx, cy]
-                        cnt_rotated = contour_rotated.astype(np.int32)
-                        giro=180
+                            # Rotar 180º multiplicando por -1
+                            contour_rotated = contour_centered * [-1, -1]
 
-                    
-                    #Poner máscara de relleno
-                    relleno=almonds.copy()
-                    # Definir el ángulo de rotación y el desplazamiento
-                    # Rotación en grados
-                    # Desplazamiento en píxeles
-
-                    # Obtener el centro de la imagen para rotar alrededor de este
-                    # centro_x_relleno, centro_y_relleno = relleno.shape[1] // 2, relleno.shape[0] // 2   
-
-                    # Crear la matriz de rotación
-                    
-                    M_rotacion = cv2.getRotationMatrix2D((cx_initial, cy_initial), giro-rotation_angle, 1.0)
-
-                    # Agregar la traslación a la matriz de rotación
-                    M_rotacion[0, 2] += dx  # Desplazar en x
-                    M_rotacion[1, 2] += dy  # Desplazar en y
-
-                    image_transformada = cv2.warpAffine(relleno, M_rotacion, (image_base.shape[1], image_base.shape[0]))
-                    
-
-                    # 2. Crear una máscara del mismo tamaño que la imagen transformada
-                    mascara = np.zeros(image_transformada.shape[:2], dtype=np.uint8)
-                    # 3. Dibujar el contorno en la máscara y rellenar el interior
-                    mascara=cv2.drawContours(mascara, [cnt_rotated], -1, 255, thickness=cv2.FILLED)
-
-                    relleno_almendra = cv2.bitwise_and(image_transformada, image_transformada , mask=mascara)
-                    relleno_almendra = relleno_almendra[:, :image_base.shape[1], :]
-                    
-                    # extend_pic=image_base.copy()
-                    # # Copiar relleno_almendra en la nueva imagen
-                    # extend_pic[:, :relleno_almendra.shape[1]] = relleno_almendra 
-                    # print(count)
-                    # print(relleno_almendra.shape, "relleno")
-                    # print(measure_pic.shape, "measure")
-                    # print(extend_pic.shape,"extend")
-                    # print("centro:", cy, cx )
-                    # # cv2.imshow("dfdfs", relleno_almendra)
-                    # # cv2.waitKey()
-                    # # cv2.destroyAllWindows()
-
-                    measure_pic = cv2.bitwise_or(measure_pic, relleno_almendra)
-                    circ_pic = cv2.bitwise_or(circ_pic, relleno_almendra)
-                    elipse_pic = cv2.bitwise_or(elipse_pic, relleno_almendra)
-                    widths_pic=cv2.bitwise_or(widths_pic, relleno_almendra)
-                    # symmetry_pic=cv2.bitwise_or(symmetry_pic, relleno_almendra)
-
-                    measure_pic=cv2.drawContours(measure_pic, [cnt_rotated], 0, (0, 255, 0), 1)
-
-                    box= cv2.boundingRect(cnt_rotated)
-                    (xb,yb, w, h)= box
-
-                    measure_pic=cv2.rectangle(measure_pic,(xb,yb),(xb+w,yb+h),(0,0,255),1)
-
-                    box= ((xb+(w/2),yb+(h/2)),(w,h), angle-180)
-                    
-
-                    box = cv2.cv.BoxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
-                    box = np.array(box, dtype="int")
-                    
-                    box = perspective.order_points(box)
-                    
-                    (tl, tr, br, bl) = box
-                    (tltrX, tltrY) = midpoint(tl, tr)
-                    (blbrX, blbrY) = midpoint(bl, br)
-                    (tlblX, tlblY) = midpoint(tl, bl)
-                    (trbrX, trbrY) = midpoint(tr, br)
-                    
-                    
-                    dA = dist.euclidean((tltrX, tltrY), (blbrX, blbrY))
-                    dB = dist.euclidean((tlblX, tlblY), (trbrX, trbrY))
-                    
+                            # Volver a trasladar el contorno al centro original
+                            contour_rotated = contour_rotated + [cx, cy]
+                            cnt_rotated = contour_rotated.astype(np.int32)
+                            giro=180
+                        
 
 
-                    if dA < dB:
-                        dB_temp= dB
-                        dB=dA
-                        dA=dB_temp
-                    else:
-                        pass
 
-                    dimA = float(dA / pixelmetric)
-                    dimB = float(dB / pixelmetric)
-                    cv2.putText(measure_pic, f"N: {count}", (int(tltrX), int(tltrY+10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                    cv2.putText(measure_pic, "L:{:.2f}mm".format(dimA), (int(tltrX - 50), int(tltrY - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                    cv2.putText(measure_pic, "W:{:.2f}mm".format(dimB), (int(trbrX - 100), int(trbrY)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    ########## Width 25, 50 y 75 ############
-                    # Crear una máscara del tamaño de la imagen original,
-                    mascara = np.zeros(image_base.shape[:2], dtype=np.uint8)   
+                        
+                        #Poner máscara de relleno
+                        relleno=almonds.copy()
+                        # Definir el ángulo de rotación y el desplazamiento
+                        # Rotación en grados
+                        # Desplazamiento en píxeles
 
-                    # Dibujar el contorno en la máscara, rellenar el interior 
-                    cv2.drawContours(mascara, [cnt_rotated], -1, 255, thickness=cv2.FILLED)  
+                        # Obtener el centro de la imagen para rotar alrededor de este
+                        # centro_x_relleno, centro_y_relleno = relleno.shape[1] // 2, relleno.shape[0] // 2   
 
-                    # Recortar la región de interés (ROI) de la imagen usando la bounding box
-                    ROI = mascara[yb:yb+h, xb:xb+w]
-                    # print(h, "h")
-                    # print(dA, "dA")
-                    h_25=int(dA*0.25)
-                    h_50=int(dA*0.50)
-                    h_75=int(dA*0.75)
+                        # Crear la matriz de rotación
+                        
+                        M_rotacion = cv2.getRotationMatrix2D((cx_initial, cy_initial), giro-rotation_angle, 1.0)
 
-                    width_25=cv2.countNonZero(ROI[h_25:h_25 + 1, :])/pixelmetric
-                    width_50=cv2.countNonZero(ROI[h_50:h_50 + 1, :])/pixelmetric
-                    width_75=cv2.countNonZero(ROI[h_75:h_75 + 1, :])/pixelmetric
-                    
-                    verde = (0, 255, 0)
-                    # Dibujar la línea verde en el 25% de la altura
-                    cv2.line(widths_pic, (xb, yb + h_25), (xb + w, yb + h_25), verde, 1)
+                        # Agregar la traslación a la matriz de rotación
+                        M_rotacion[0, 2] += dx  # Desplazar en x
+                        M_rotacion[1, 2] += dy  # Desplazar en y
 
-                    # Dibujar la línea verde en el 50% de la altura
-                    cv2.line(widths_pic, (xb, yb + h_50), (xb + w, yb + h_50), verde, 1)
+                        image_transformada = cv2.warpAffine(relleno, M_rotacion, (image_base.shape[1], image_base.shape[0]))
+                        
 
-                    # Dibujar la línea verde en el 75% de la altura
-                    cv2.line(widths_pic, (xb, yb + h_75), (xb + w, yb + h_75), verde, 1)
+                        # 2. Crear una máscara del mismo tamaño que la imagen transformada
+                        mascara = np.zeros(image_transformada.shape[:2], dtype=np.uint8)
+                        # 3. Dibujar el contorno en la máscara y rellenar el interior
+                        mascara=cv2.drawContours(mascara, [cnt_rotated], -1, 255, thickness=cv2.FILLED)
 
-                    cv2.putText(widths_pic, "{:.2f}mm".format(float(width_25)), (int(tltrX - 40), int(yb + h_25)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                    cv2.putText(widths_pic, "{:.2f}mm".format(float(width_50)), (int(tltrX - 40), int(yb + h_50)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                    cv2.putText(widths_pic, "{:.2f}mm".format(float(width_75)), (int(tltrX - 40), int(yb + h_75)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        relleno_almendra = cv2.bitwise_and(image_transformada, image_transformada , mask=mascara)
+                        relleno_almendra = relleno_almendra[:, :image_base.shape[1], :]
+                        
+                        # extend_pic=image_base.copy()
+                        # # Copiar relleno_almendra en la nueva imagen
+                        # extend_pic[:, :relleno_almendra.shape[1]] = relleno_almendra 
+                        # print(count)
+                        # print(relleno_almendra.shape, "relleno")
+                        # print(measure_pic.shape, "measure")
+                        # print(extend_pic.shape,"extend")
+                        # print("centro:", cy, cx )
+                        # # cv2.imshow("dfdfs", relleno_almendra)
+                        # # cv2.waitKey()
+                        # # cv2.destroyAllWindows()
 
-                    ############### Symmetry x and y ##########################
-                    
-                    simmetry_v=calcular_simetria_vertical(ROI)
-                    simmetry_h=calcular_simetria_horizontal(ROI)
+                        measure_pic = cv2.bitwise_or(measure_pic, relleno_almendra)
+                        circ_pic = cv2.bitwise_or(circ_pic, relleno_almendra)
+                        elipse_pic = cv2.bitwise_or(elipse_pic, relleno_almendra)
+                        widths_pic=cv2.bitwise_or(widths_pic, relleno_almendra)
+                        # symmetry_pic=cv2.bitwise_or(symmetry_pic, relleno_almendra)
 
-                    # cv2.line(symmetry_pic, (xb, yb + h_50), (xb + w, yb + h_50), verde, 1)
-                    # cv2.line(symmetry_pic, (xb+int(w/2), yb), (xb + int(w/2), yb + h), verde, 1)
+                        measure_pic=cv2.drawContours(measure_pic, [cnt_rotated], 0, (0, 255, 0), 1)
 
-                    # cv2.putText(symmetry_pic, "Sv: {:.2f}".format(float(simmetry_v)), (int(tltrX - 40), int(yb )), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                    # cv2.putText(symmetry_pic, "Sh: {:.2f}".format(float( simmetry_h)), (int(tltrX - 40), int(yb + h_50)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        box= cv2.boundingRect(cnt_rotated)
+                        (xb,yb, w, h)= box
+
+                        measure_pic=cv2.rectangle(measure_pic,(xb,yb),(xb+w,yb+h),(0,0,255),1)
+
+                        box= ((xb+(w/2),yb+(h/2)),(w,h), angle-180)
+                        
+
+                        box = cv2.cv.BoxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
+                        box = np.array(box, dtype="int")
+                        
+                        box = perspective.order_points(box)
+                        
+                        (tl, tr, br, bl) = box
+                        (tltrX, tltrY) = midpoint(tl, tr)
+                        (blbrX, blbrY) = midpoint(bl, br)
+                        (tlblX, tlblY) = midpoint(tl, bl)
+                        (trbrX, trbrY) = midpoint(tr, br)
+                        
+                        
+                        dA = dist.euclidean((tltrX, tltrY), (blbrX, blbrY))
+                        dB = dist.euclidean((tlblX, tlblY), (trbrX, trbrY))
+                        
+                        if dA < dB:
+                            dB_temp= dB
+                            dB=dA
+                            dA=dB_temp
+                        else:
+                            pass
+
+                        dimA = float(dA / pixelmetric)
+                        dimB = float(dB / pixelmetric)
+                        cv2.putText(measure_pic, f"N: {count}", (int(tltrX), int(tltrY+10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        cv2.putText(measure_pic, "L:{:.2f}mm".format(dimA), (int(tltrX - 50), int(tltrY - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        cv2.putText(measure_pic, "W:{:.2f}mm".format(dimB), (int(trbrX - 100), int(trbrY)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        ########## Width 25, 50 y 75 ############
+                        # Crear una máscara del tamaño de la imagen original,
+                        mascara = np.zeros(image_base.shape[:2], dtype=np.uint8)   
+
+                        # Dibujar el contorno en la máscara, rellenar el interior 
+                        cv2.drawContours(mascara, [cnt_rotated], -1, 255, thickness=cv2.FILLED)  
+
+                        # Recortar la región de interés (ROI) de la imagen usando la bounding box
+                        ROI = mascara[yb:yb+h, xb:xb+w]
+                        
+                        # print(h, "h")
+                        # print(dA, "dA")
+                        h_25=int(dA*0.25)
+                        h_50=int(dA*0.50)
+                        h_75=int(dA*0.75)
+
+                        width_25=cv2.countNonZero(ROI[h_25:h_25 + 1, :])/pixelmetric
+                        width_50=cv2.countNonZero(ROI[h_50:h_50 + 1, :])/pixelmetric
+                        width_75=cv2.countNonZero(ROI[h_75:h_75 + 1, :])/pixelmetric
+                        
+                        verde = (0, 255, 0)
+                        # Dibujar la línea verde en el 25% de la altura
+                        cv2.line(widths_pic, (xb, yb + h_25), (xb + w, yb + h_25), verde, 1)
+
+                        # Dibujar la línea verde en el 50% de la altura
+                        cv2.line(widths_pic, (xb, yb + h_50), (xb + w, yb + h_50), verde, 1)
+
+                        # Dibujar la línea verde en el 75% de la altura
+                        cv2.line(widths_pic, (xb, yb + h_75), (xb + w, yb + h_75), verde, 1)
+
+                        cv2.putText(widths_pic, "{:.2f}mm".format(float(width_25)), (int(tltrX - 40), int(yb + h_25)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        cv2.putText(widths_pic, "{:.2f}mm".format(float(width_50)), (int(tltrX - 40), int(yb + h_50)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        cv2.putText(widths_pic, "{:.2f}mm".format(float(width_75)), (int(tltrX - 40), int(yb + h_75)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        # Shoulder
+                        
+                        # Suponiendo que tienes la máscara y las coordenadas (xb, yb, w, h) ya definidas
+                        # Tomar la fila yb + int(h*0.25) de la máscara
+                        row = mascara[yb + int(h * 0.25), :]  # Extraemos la fila completa de la máscara
+
+                        # Encontrar el primer y último píxel con valor 255 en esa fila
+                        start_col = np.argmax(row == 255)  # Primer píxel con valor 255
+                        end_col = len(row) - np.argmax(row[::-1] == 255)  # Último píxel con valor 255
+                        # Verificar que los índices sean válidos (que efectivamente haya píxeles con valor 255)
+                        if start_col < end_col:
+
+                            ROI_shoulder = mascara[yb:yb + int(h * 0.25), start_col:end_col]  # ROI entre los dos índices
+                                                # Escalar la ROI al tamaño que desees (por ejemplo, duplicar el tamaño)
+                            # scaled_ROI = cv2.resize(ROI_shoulder, (0, 0), fx=2, fy=2)  # Escala 2x en ambos ejes
+                            
+                            shoulder=calcular_simetria_vertical(ROI_shoulder)
+
+                            # print(shoulder)
+                            # cv2.putText(widths_pic, "{:.3f}".format(float(shoulder)), (int(tltrX - 120), int(yb + h_75)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                            # # Mostrar la imagen escalada
+                            # cv2.imshow("Escalada ROI", scaled_ROI)
+                            # cv2.waitKey(0)
+                            # cv2.destroyAllWindows()
+
+                        else:
+                            ROI_shoulder = None  # No se encontró una región con valor 255 en esa filaROI_shoulder = mascara[yb:yb+int(h*0.25), xb:xb+w]
+                            print("shoulder_error")
 
 
-                    ############### Area and perimeter##########################
-                    area=(cv2.contourArea(cnt_rotated))/(pixelmetric**2)
-                    perimeter= (cv2.arcLength(cnt_rotated, True))/(pixelmetric)
-                    ############### Hull Area and Solidity##########################
 
-                    hull = cv2.convexHull(cnt_rotated)
-                    area_hull= (cv2.contourArea(hull))/(pixelmetric**2)
-                    solidity = area/area_hull
-                    ############### Circulatity and ellipse ##########################
-
-                    circularity=4*np.pi*(area/perimeter**2)
-                    circularity = float(circularity)
-                    (x,y),radius = cv2.minEnclosingCircle(cnt_rotated)
-                    center = (int(x),int(y))
-                    radius = int(radius)
-                    circ_pic=cv2.circle(circ_pic,center,radius,(0,255,0),2)
-                    cv2.putText(circ_pic, "Circ: {:.2f}".format(circularity), (int(tltrX - 50), int(tltrY - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-
-                    ellipse = cv2.fitEllipse(cnt_rotated)
-                    ellipse_rat= ellipse[1][0]/ellipse[1][1]
-                    elipse_pic= cv2.ellipse(elipse_pic, ellipse, (0,255,0),2)
-                    cv2.putText(elipse_pic, "Elip: {:.2f}".format(ellipse_rat), (int(tltrX - 50), int(tltrY - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                    
-
-                    ############### Color Average ##########################
+                        
 
 
-                    lab_pic= cv2.cvtColor(almonds, cv2.COLOR_BGR2LAB)
-                    mask_contour = np.zeros_like(lab_pic)
-                    mask_contour=cv2.drawContours(mask_contour, [contour], -1, 255, -1)
-                    mask_contour= cv2.cvtColor(mask_contour, cv2.COLOR_BGR2GRAY)
 
-                    color_pic=cv2.bitwise_and(lab_pic, lab_pic, mask=mask_contour)
-                    l, a, b= cv2.split(color_pic)
-                    
-                    ml=(np.mean(l[mask_contour != 0]))*100/255
-                    ma=(np.mean(a[mask_contour != 0]))-128
-                    mb=(np.mean(b[mask_contour != 0]))-128
 
-                    ############### Contours_mask ##########################
-                    #Esto es para la imagen final unicamente
-                    all_almond_contours.append(contour)
-                    #Aqui para exportar los contornos
-                    if self.binary_masks==True:
-                            try:
+                        
+                        ############### Symmetry x and y ##########################
+                        
+                        simmetry_v=calcular_simetria_vertical(ROI)
+                        simmetry_h=calcular_simetria_horizontal(ROI)
+
+                        # cv2.line(symmetry_pic, (xb, yb + h_50), (xb + w, yb + h_50), verde, 1)
+                        # cv2.line(symmetry_pic, (xb+int(w/2), yb), (xb + int(w/2), yb + h), verde, 1)
+
+                        # cv2.putText(symmetry_pic, "Sv: {:.2f}".format(float(simmetry_v)), (int(tltrX - 40), int(yb )), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        # cv2.putText(symmetry_pic, "Sh: {:.2f}".format(float( simmetry_h)), (int(tltrX - 40), int(yb + h_50)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+
+
+                        ############### Area and perimeter##########################
+                        area=(cv2.contourArea(cnt_rotated))/(pixelmetric**2)
+                        perimeter= (cv2.arcLength(cnt_rotated, True))/(pixelmetric)
+                        ############### Hull Area and Solidity##########################
+
+                        hull = cv2.convexHull(cnt_rotated)
+                        area_hull= (cv2.contourArea(hull))/(pixelmetric**2)
+                        solidity = area/area_hull
+                        ############### Circulatity and ellipse ##########################
+
+                        circularity=4*np.pi*(area/perimeter**2)
+                        circularity = float(circularity)
+                        (x,y),radius = cv2.minEnclosingCircle(cnt_rotated)
+                        center = (int(x),int(y))
+                        radius = int(radius)
+                        circ_pic=cv2.circle(circ_pic,center,radius,(0,255,0),2)
+                        cv2.putText(circ_pic, "Circ: {:.2f}".format(circularity), (int(tltrX - 50), int(tltrY - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+
+                        ellipse = cv2.fitEllipse(cnt_rotated)
+                        ellipse_rat= ellipse[1][0]/ellipse[1][1]
+                        elipse_pic= cv2.ellipse(elipse_pic, ellipse, (0,255,0),2)
+                        cv2.putText(elipse_pic, "Elip: {:.2f}".format(ellipse_rat), (int(tltrX - 50), int(tltrY - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                        
+
+                        ############### Color Average ##########################
+
+
+                        lab_pic= cv2.cvtColor(almonds, cv2.COLOR_BGR2LAB)
+                        mask_contour = np.zeros_like(lab_pic)
+                        mask_contour=cv2.drawContours(mask_contour, [contour], -1, 255, -1)
+                        mask_contour= cv2.cvtColor(mask_contour, cv2.COLOR_BGR2GRAY)
+
+                        color_pic=cv2.bitwise_and(lab_pic, lab_pic, mask=mask_contour)
+                        l, a, b= cv2.split(color_pic)
+                        
+                        ml=(np.mean(l[mask_contour != 0]))*100/255
+                        ma=(np.mean(a[mask_contour != 0]))-128
+                        mb=(np.mean(b[mask_contour != 0]))-128
+
+                        ############### Contours_mask ##########################
+                        #Esto es para la imagen final unicamente
+                        all_almond_contours.append(contour)
+                        #Aqui para exportar los contornos
+                        if self.binary_masks==True:
                         # Obtener la bounding box del contorno    
                                 # Obtener la bounding box del contorno    
+                                # Crear la máscara base y el contorno
+                                
+                                # Crear la máscara base y el contorno
+                                # Crear la máscara base y el contorno
                                 mascara = np.ones(image_base.shape[:2], dtype=np.uint8) * 255  # Máscara blanca
-                                cnt_rotated = cv2.approxPolyDP(cnt_rotated, epsilon=1.0, closed=True)
-                                # Dibujar el contorno en la máscara, rellenar el interior de negro
+                            
+                                # cnt_rotated = cv2.approxPolyDP(cnt_rotated, epsilon=2, closed=True)
+
+                                # Dibujar el contorno en la máscara, rellenar con negro
                                 cv2.drawContours(mascara, [cnt_rotated], -1, 0, thickness=cv2.FILLED)  # Rellenar con 0 (negro)
+                                
+
 
                                 # Recortar la región de interés (ROI) de la imagen usando la bounding box
                                 ROI = mascara[yb:yb+h, xb:xb+w]                   
 
-                                factor_escala = 250 / ROI.shape[0]
-                                nueva_h = 250
+                                factor_escala = self.binary_pixel_size / ROI.shape[0]
+                                nueva_h = self.binary_pixel_size
                                 nueva_w = int(ROI.shape[1] * factor_escala)
 
                                 # Redimensionar usando interpolación nearest-neighbor
-                                ROI_redimensionada = cv2.resize(ROI, (nueva_w, nueva_h), interpolation=cv2.INTER_NEAREST)
+                                # ROI_redimensionada = cv2.resize(ROI, (nueva_w*2, nueva_h*2), interpolation=cv2.INTER_NEAREST)
+                                ROI_redimensionada = cv2.resize(ROI, (nueva_w, nueva_h), interpolation=cv2.INTER_NEAREST_EXACT)
 
                                 # Invertir la máscara para que la figura sea blanca (255) y el fondo negro (0)
                                 ROI_invertida = cv2.bitwise_not(ROI_redimensionada)
@@ -471,28 +512,62 @@ class pictures():
                                 ROI_final = cv2.bitwise_not(ROI_invertida)
 
                                 # Creamos una imagen de fondo blanco de 1000x1000 píxeles
-                                imagen_final = np.ones((250, 250), dtype=np.uint8) * 255
+                                imagen_final = np.ones((self.binary_pixel_size, self.binary_pixel_size), dtype=np.uint8) * 255
 
                                 # Calculamos las coordenadas para centrar la ROI en la imagen final
-                                x_offset = (250 - nueva_w) // 2
-                                y_offset = (250 - nueva_h) // 2
+                                x_offset = (self.binary_pixel_size - nueva_w) // 2
+                                y_offset = (self.binary_pixel_size - nueva_h) // 2
 
                                 # Insertamos la ROI suavizada en el fondo blanco
                                 imagen_final[y_offset:y_offset + nueva_h, x_offset:x_offset + nueva_w] = ROI_final
+                                
+                                _, imagen_final_binaria = cv2.threshold(imagen_final, 254, 255, cv2.THRESH_BINARY)
+
+
+                                # Encuentra las coordenadas (x, y) de todos los píxeles negros (valor 0)
+                                coordenadas_negras = np.column_stack(np.where(imagen_final_binaria == 0))
+
+                                if len(coordenadas_negras) > 0:
+                                    # Encuentra el píxel negro con el mayor valor de Y (parte inferior máxima)
+                                    max_y = np.max(coordenadas_negras[:, 0])  # Máximo valor en el eje Y
+
+                                    # Filtra los píxeles que están en la fila más baja (eje Y = max_y)
+                                    pixels_fila_mas_baja = coordenadas_negras[coordenadas_negras[:, 0] == max_y]
+
+                                    # Encuentra el píxel más a la derecha (máximo X) entre los filtrados
+                                    pixel_mas_derecha = pixels_fila_mas_baja[np.argmax(pixels_fila_mas_baja[:, 1])]
+
+                                #     # print("Píxel negro más bajo en el eje Y (parte inferior máxima):", (pixel_mas_derecha[1], max_y))
+                                #     # print("Píxel negro más a la derecha en esa fila:", pixel_mas_derecha)
+                                # else:
+                                #     print("No hay píxeles negros en la imagen.")
 
                                 if self.blurring_binary_masks is True:
                                     # Aplicar suavizado gaussiano si está habilitado
                                     imagen_final = cv2.GaussianBlur(imagen_final, (self.blur_binary_masks_value, self.blur_binary_masks_value), 0)
+                                    # Recupera un borde definido aplicando un umbral
+                                    _, imagen_final  = cv2.threshold(imagen_final , 127, 255, cv2.THRESH_BINARY)
                                 
 
+                                if pixel_mas_derecha[1] > self.binary_pixel_size/2:
+                                    # print("IMAGEN GIRADA", name_pic, count)
+                                    imagen_final = cv2.flip(imagen_final, 1)
+
                                 cv2.imwrite(f'{self.path_export_4}/{name_pic}_{count}.jpg', imagen_final)
-                            except Exception as e:
-                                print(f"Error with picture {name_pic}", f"Fruit number: {count}", e)
-                                error_list.append([name_pic, count, e])
+
+                    except Exception as e:
+                        print(f"Error with picture {name_pic}", f"Fruit number: {count}", e)
+                        error_list.append([name_pic, count, e])
+                        traceback.print_exc()
+                        row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,None, None, None, None, None,None, None,None, None, None, None, None, None, None, None, None, None]],
+                        columns=morphology_table.columns)
+                        morphology_table = pd.concat([morphology_table, row], ignore_index=True)
+                        count=count+1
+                        
                                 
 
                     #Write_results
-                    row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, width_25[0], width_50[0], width_75[0],area[0], perimeter[0],area_hull[0], solidity[0], circularity, ellipse_rat, ml, ma, mb, simmetry_h, simmetry_v]],
+                    row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, width_25[0], width_50[0], width_75[0],area[0], perimeter[0],area_hull[0], solidity[0], circularity, ellipse_rat, ml, ma, mb, simmetry_h, simmetry_v, shoulder]],
                                     columns=morphology_table.columns)
                     
                     morphology_table = pd.concat([morphology_table, row], ignore_index=True)
@@ -511,6 +586,7 @@ class pictures():
                 row_general=pd.DataFrame([row_general], columns=general_table.columns)
                 general_table=pd.concat([general_table,row_general], ignore_index=True)
 
+                
                 #Draw the contours for green masking
                 almonds_mask= np.zeros((height_pic, width_pic), dtype=np.uint8)
                 cv2.drawContours(almonds_mask, all_almond_contours, -1, 255, thickness=cv2.FILLED)
@@ -533,6 +609,7 @@ class pictures():
                 # # Crear una imagen con transparencia (40%)
                 alpha = 0.05  # Opacidad del 40%
 
+                
                 # # Crear la imagen final combinando la original y la verde
                 # # Asegúrate de aplicar la máscara solo en las áreas que correspondan
                 # # 1. Multiplica la máscara por el color verde
@@ -645,36 +722,65 @@ class pictures():
         #crear función corrige outliers en outputs general table,  binary masks y output image
 
 
-    def correct_outliers(self, outlier_file):
-        outlier_df_2 = pd.read_csv(outlier_file, delimiter="\t")
+    def correct_outliers(self, outlier_file=None, addingsamples_file=None):
 
-        #ELIMINAR DE MORPHOLOGY TABLE
-        # Filtramos el DataFrame morphology_table para eliminar las filas que tengan combinaciones de Sample_picture y Fruit_number en outlier_df
-        morphology_table_cleaned = self.morphology_table[~self.morphology_table[['Sample_picture', 'Fruit_number']].apply(tuple, 1).isin(outlier_df_2[['Sample_picture', 'Fruit_number']].apply(tuple, 1))]
-        # Verificamos el resultado
-        morphology_table_cleaned.to_csv(self.path_export_1, mode='w', header=True, index=False, sep='\t')
-        
-        #ELIMINAR DE LA TABLA DE BINARY
-        # Crear una columna temporal en el DataFrame de outliers con la forma de los valores en Binary_mask_picture
-        
-        outlier_df_2['Binary_mask_picture'] = outlier_df_2['Sample_picture'] + "_" + outlier_df_2['Fruit_number'].astype(str)
 
-        # Filtrar el DataFrame de binary masks para eliminar las filas que coincidan con los valores en outlier_df
-        binary_table_cleaned = self.binary_table[~self.binary_table['Binary_mask_picture'].isin(outlier_df_2['Binary_mask_picture'])]
-        binary_table_cleaned.to_csv(self.path_export_5, mode='w', header=True, index=False, sep='\t')
-        
-        #ELIMINAR LAS BINARY MASKS
-        # Crear la lista de máscaras a eliminar a partir de outlier_df
-        outlier_df_2['Mask_filename'] = outlier_df_2['Sample_picture'] + "_" + outlier_df_2['Fruit_number'].astype(str) + ".jpg"
+        #Para añadir o quitar al numero de frutos utilizamos adding samples_file
 
-        # Iterar sobre los archivos en la carpeta de máscaras
-        for mask_filename in os.listdir(self.path_export_4):
-            # Verificar si el archivo está en la lista de máscaras a eliminar
-            if mask_filename in outlier_df_2['Mask_filename'].values:
-                # Construir la ruta completa del archivo
-                file_path = os.path.join(self.path_export_4, mask_filename)
-                # Eliminar el archivo
-                os.remove(file_path)
-                print(f"Archivo eliminado: {mask_filename}")
+        if addingsamples_file is not None:
+            add_df = pd.read_csv(addingsamples_file, delimiter="\t")
+            general_table_cleaned=self.general_table
+
+
+            # Realizamos un merge (join) entre los DataFrames basado en la columna 'Name_picture'
+            merged_df = general_table_cleaned.merge(add_df, on="Sample_picture", how="left")
+
+            # Convertimos las columnas a enteros antes de la suma, si no lo son
+            merged_df["N_fruits"] = merged_df["N_fruits"].fillna(0).astype(int)
+            merged_df["n_almonds_to_Add"] = merged_df["n_almonds_to_Add"].fillna(0).astype(int)
+
+            # Realizamos la suma
+            merged_df["N_fruits"] = merged_df["N_fruits"] + merged_df["n_almonds_to_Add"]
+
+
+            # Eliminamos la columna adicional si ya no la necesitamos
+            merged_df = merged_df.drop(columns=["n_almonds_to_Add"])
+
+            # Si necesitas actualizar tu DataFrame original:
+            general_table_cleaned = merged_df
+            general_table_cleaned.to_csv(self.path_export_2, mode='w', header=True, index=False, sep='\t')
+
+        if outlier_file is not None:
+            outlier_df_2 = pd.read_csv(outlier_file, delimiter="\t")
+
+            #ELIMINAR DE MORPHOLOGY TABLE
+            # Filtramos el DataFrame morphology_table para eliminar las filas que tengan combinaciones de Sample_picture y Fruit_number en outlier_df
+            morphology_table_cleaned = self.morphology_table[~self.morphology_table[['Sample_picture', 'Fruit_number']].apply(tuple, 1).isin(outlier_df_2[['Sample_picture', 'Fruit_number']].apply(tuple, 1))]
+            # Verificamos el resultado
+            morphology_table_cleaned.to_csv(self.path_export_1, mode='w', header=True, index=False, sep='\t')
+            
+            #ELIMINAR DE LA TABLA DE BINARY
+            # Crear una columna temporal en el DataFrame de outliers con la forma de los valores en Binary_mask_picture
+            
+            outlier_df_2['Binary_mask_picture'] = outlier_df_2['Sample_picture'] + "_" + outlier_df_2['Fruit_number'].astype(str)
+
+            # Filtrar el DataFrame de binary masks para eliminar las filas que coincidan con los valores en outlier_df
+            binary_table_cleaned = self.binary_table[~self.binary_table['Binary_mask_picture'].isin(outlier_df_2['Binary_mask_picture'])]
+            binary_table_cleaned.to_csv(self.path_export_5, mode='w', header=True, index=False, sep='\t')
+            
+            #ELIMINAR LAS BINARY MASKS
+            # Crear la lista de máscaras a eliminar a partir de outlier_df
+            outlier_df_2['Mask_filename'] = outlier_df_2['Sample_picture'] + "_" + outlier_df_2['Fruit_number'].astype(str) + ".jpg"
+
+            # Iterar sobre los archivos en la carpeta de máscaras
+            for mask_filename in os.listdir(self.path_export_4):
+                # Verificar si el archivo está en la lista de máscaras a eliminar
+                if mask_filename in outlier_df_2['Mask_filename'].values:
+                    # Construir la ruta completa del archivo
+                    file_path = os.path.join(self.path_export_4, mask_filename)
+                    # Eliminar el archivo
+                    os.remove(file_path)
+                    print(f"Archivo eliminado: {mask_filename}")
         print(" PLEASE CHECK NUMBER OF FRUITS IN GENERAL TABLE IF YOU ARE WANT WEIGHT.")
+
 

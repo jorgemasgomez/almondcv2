@@ -79,12 +79,6 @@ def calibrate_color(input_picture="",input_folder="",output_path="",approach="co
             print(e)
 
                     
-        
-
-    
-
-
-
 
 def build_calibration(chessboardSize, frameSize, dir_path, image_format, size_of_chessboard_squares_mm):
 # termination criteria
@@ -141,7 +135,7 @@ def build_calibration(chessboardSize, frameSize, dir_path, image_format, size_of
 
     np.savez_compressed(f'{dir_path}/calibration_mtx.npz', mtx=mtx, dist=dist)
 
-def calibrate_distortion(input_picture,  mtx_input,output_path, approach="distortion",input_folder=""):
+def calibrate_distortion(  mtx_input,output_path, input_folder=None, input_picture=None, approach="distortion"):
     data = np.load(mtx_input)
     mtx = data['mtx']
     dist = data['dist']

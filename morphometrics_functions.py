@@ -144,8 +144,8 @@ def exploratory_morphometrics_r(
 
 
 def run_efourier_pca_morphometrics_r(ruta_outline_objects, nharmonics, output_directory, 
-                                      img_width_boxplot=750, img_height_boxplot=500, 
-                                      img_width_pca=750, img_height_pca=500, show=False, normalize="FALSE", start_point="FALSE", allign_x="TRUE"):
+                                      img_width_boxplot=1000, img_height_boxplot=1000, 
+                                      img_width_pca=1000, img_height_pca=1000, show=False, normalize="FALSE", start_point="FALSE", allign_x="TRUE"):
     """
     Ejecuta el script de R "efourier_morphometrics.R" con los argumentos proporcionados.
 
@@ -211,7 +211,7 @@ def run_efourier_pca_morphometrics_r(ruta_outline_objects, nharmonics, output_di
 
 
 
-def run_plot_pca_morphometrics_r(ruta_pca_objects, output_directory, img_width_pca=750, img_height_pca=500, 
+def run_plot_pca_morphometrics_r(ruta_pca_objects, output_directory, img_width_pca=1000, img_height_pca=1000, 
                                  grouping_factor="", PC_axis1=1, PC_axis2=2, 
                                  chull_layer="FALSE", chullfilled_layer="FALSE", show=True):
     """
@@ -277,8 +277,8 @@ def run_plot_pca_morphometrics_r(ruta_pca_objects, output_directory, img_width_p
         print(f"Error al ejecutar el script R: {e.stderr}")
 
 
-def run_kmeans_efourier_r(ruta_pca_objects, output_directory, max_clusters, img_width_pca=750, img_height_pca=500,
-                          plot_xlim=500, plot_ylim=500, show=True):
+def run_kmeans_efourier_r(ruta_pca_objects, output_directory, max_clusters, img_width_pca=1000, img_height_pca=1000,
+                          plot_xlim=250, plot_ylim=250, show=True):
     """
     Ejecuta el script de R "kmeans_Efourier_morphometric.R" con los argumentos proporcionados.
 
