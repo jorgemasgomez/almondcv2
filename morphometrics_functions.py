@@ -4,6 +4,11 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import re
+import numpy as np
+import pandas as pd
+from PIL import Image
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
 
 def install_morphometrics_packages_r():
     # Ruta al archivo de script R que instalará los paquetes
@@ -474,3 +479,136 @@ def run_obtain_kmeans_classification_r(ruta_pca_objects, output_directory, img_w
 
     except subprocess.CalledProcessError as e:
         print(f"Error al ejecutar el script R: {e.stderr}")
+
+
+
+
+
+
+
+
+
+def process_images_and_perform_pca(directory, working_directory, n_components=50, k_max=10, std_multiplier=2):
+    # Step 1: Load images and convert them to binary arrays
+    image_files = [f for f in os.listdir(directory) if f.endswith(('.png', '.jpg'))]
+    
+    images = []
+    for image_file in image_files:
+        image_path = os.path.join(directory, image_file)
+        image = Image.open(image_path).convert('1')  # Convert to binary
+        image_array = np.array(image)  # Convert image to numpy array
+        image_array = np.invert(image_array)  # Invert the binary image
+        images.append(image_array)
+    
+    # Step 2: Flatten the list of images to a matrix of shape (k, m*n), where k is the number of images
+    images = np.array(images)
+    flattened_images = images.reshape(images.shape[0], -1)  # Flatten the images
+    print("Flattened image matrix shape:", flattened_images.shape)
+
+    # Perform PCA to reduce dimensionality
+    pca = PCA(n_components=n_components)
+    pca_images = pca.fit_transform(flattened_images)
+
+    # Explained variance for each component
+    explained_variance = pca.explained_variance_ratio_
+
+    # Create a DataFrame with the PCA values
+    df_pca = pd.DataFrame(
+        pca_images[:, :10],  # Take only the first 10 principal components
+        columns=[f"PC{i+1}" for i in range(10)],  # Column names (PC1 to PC10)
+        index=image_files  # Use actual image filenames as index
+    )
+
+    # Save the PCA values DataFrame as a TXT file
+    pca_output_file = os.path.join(working_directory, "pca_values.txt")
+    df_pca.to_csv(pca_output_file, sep="\t", index=True)
+    print(f"PCA values file saved as {pca_output_file}")
+
+    # Save the explained variance in another TXT file
+    variance_output_file = os.path.join(working_directory, "explained_variance.txt")
+    with open(variance_output_file, "w") as f:
+        f.write("Principal Component\tExplained Variance\n")
+        for i, var in enumerate(explained_variance, 1):
+            f.write(f"PC{i}\t{var:.6f}\n")
+    
+    print(f"Explained variance file saved as {variance_output_file}")
+
+    # Step 3: Calculate the mean shape in the original space
+    mean_shape = pca.mean_.reshape(images.shape[1], images.shape[2])
+
+    # For each principal component (PC1 to PC10)
+    for pc in range(10):  # Iterate over the first 10 PCs
+        std_pc = np.sqrt(pca.explained_variance_[pc])  # Standard deviation of the component
+        direction_pc = pca.components_[pc].reshape(images.shape[1], images.shape[2])  # Direction of the PC in the original space
+
+        # Calculate the adjusted shapes based on mean shape and standard deviation
+        shape_pos = mean_shape + std_multiplier * std_pc * direction_pc  # Mean + std_multiplier*std
+        shape_neg = mean_shape - std_multiplier * std_pc * direction_pc  # Mean - std_multiplier*std
+
+        # Create a figure with 3 images: (-std_multiplier std, mean, +std_multiplier std)
+        plt.figure(figsize=(12, 4))
+
+        # Mean shape - std_multiplier std
+        plt.subplot(1, 3, 1)
+        plt.imshow(shape_neg > 0.5, cmap="Wistia")  # Threshold to binarize
+        plt.title(f"PC{pc+1}: Mean - {std_multiplier}*std")
+        plt.axis("off")
+
+        # Mean shape
+        plt.subplot(1, 3, 2)
+        plt.imshow(mean_shape > 0.5, cmap="Wistia")  # Threshold to binarize
+        plt.title(f"PC{pc+1}: Mean")
+        plt.axis("off")
+
+        # Mean shape + std_multiplier std
+        plt.subplot(1, 3, 3)
+        plt.imshow(shape_pos > 0.5, cmap="Wistia")  # Threshold to binarize
+        plt.title(f"PC{pc+1}: Mean + {std_multiplier}*std")
+        plt.axis("off")
+
+        # Save the figure
+        plt.tight_layout()
+        plt.savefig(os.path.join(working_directory, f"pc{pc+1}_influence.jpg"), format="jpg")
+        plt.show()
+
+    # Step 4: Evaluate KMeans for different values of k (1 to k_max)
+    distortions = []  # To store inertia for each k
+    for k in range(1, k_max):
+        kmeans = KMeans(n_clusters=k, random_state=42)
+        kmeans.fit(pca_images)
+        distortions.append(kmeans.inertia_)
+
+        # Visualize the centroids of each cluster
+        centroids_pca = kmeans.cluster_centers_
+
+        # Project centroids back to original space
+        centroids_original = pca.inverse_transform(centroids_pca)
+
+        # Visualize centroids
+        rows = (k + 4) // 5  # Calculate number of rows
+        cols = min(k, 5)  # Limit to 5 columns per row (maximum)
+
+        plt.figure(figsize=(15, 3 * rows))  # Adjust figure size based on rows
+
+        for i, centroid in enumerate(centroids_original):
+            # Convert the centroid (vector) to a binary image
+            binary_image = centroid.reshape(images.shape[1], images.shape[2]) > 0.5  # Binarize with threshold
+
+            # Create a subplot
+            ax = plt.subplot(rows, cols, i + 1)
+            ax.imshow(binary_image, cmap="Wistia")  # Use a brown colormap
+            ax.set_title(f'Centroid {i + 1}')
+            ax.axis('off')
+
+        # Save centroid image as JPG
+        plt.tight_layout()
+        plt.savefig(os.path.join(working_directory, f"centroids_k_{k}.jpg"), format="jpg")
+        plt.show()
+
+    # Step 5: Evaluate optimal number of clusters using the elbow method
+    plt.plot(range(1, k_max), distortions, marker='o')
+    plt.xlabel('Number of clusters (k)')
+    plt.ylabel('Inertia (Distortion)')
+    plt.title('Elbow Method for Selecting k')
+    plt.savefig(os.path.join(working_directory, "elbow_plot.jpg"), format="jpg")
+    plt.show()
