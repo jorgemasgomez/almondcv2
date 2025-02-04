@@ -1,17 +1,15 @@
-
-import torch
 import cv2
 import numpy as np
-from model_class import model_segmentation
 import os
-from aux_functions import midpoint, pol2cart, cart2pol, calcular_simetria_horizontal, calcular_simetria_vertical
+from aux_functions import midpoint, pol2cart, cart2pol, calculate_vertical_symmetry, calculate_horizontal_symmetry
 import imutils
 from imutils import perspective
 from scipy.spatial import distance as dist
 import pandas as pd
 import shutil
-import matplotlib.pyplot as plt
 import traceback
+
+
 class pictures():
     def __init__(self, working_directory, input_folder,info_file,fruit, project_name,
                  binary_masks=False, blurring_binary_masks=False, blur_binary_masks_value=5, binary_pixel_size=250):
@@ -395,7 +393,7 @@ class pictures():
                                                 # Escalar la ROI al tamaño que desees (por ejemplo, duplicar el tamaño)
                             # scaled_ROI = cv2.resize(ROI_shoulder, (0, 0), fx=2, fy=2)  # Escala 2x en ambos ejes
                             
-                            shoulder=calcular_simetria_vertical(ROI_shoulder)
+                            shoulder=calculate_vertical_symmetry(ROI_shoulder)
 
                             # print(shoulder)
                             # cv2.putText(widths_pic, "{:.3f}".format(float(shoulder)), (int(tltrX - 120), int(yb + h_75)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
@@ -418,8 +416,8 @@ class pictures():
                         
                         ############### Symmetry x and y ##########################
                         
-                        simmetry_v=calcular_simetria_vertical(ROI)
-                        simmetry_h=calcular_simetria_horizontal(ROI)
+                        simmetry_v=calculate_vertical_symmetry(ROI)
+                        simmetry_h=calculate_horizontal_symmetry(ROI)
 
                         # cv2.line(symmetry_pic, (xb, yb + h_50), (xb + w, yb + h_50), verde, 1)
                         # cv2.line(symmetry_pic, (xb+int(w/2), yb), (xb + int(w/2), yb + h), verde, 1)

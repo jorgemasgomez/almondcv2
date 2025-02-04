@@ -1,0 +1,4 @@
+Para hacerlo local
+Añadir R al path
+La libreria de SAHI modificada
+#Es fundamental la versión de matplotlib 3.5.1 sino dara el error ModuleNotFoundError: No module named 'matplotlib._contour' en calibrations

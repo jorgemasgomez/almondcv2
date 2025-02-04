@@ -1,20 +1,20 @@
 # Morphometrics install packages
 
-# Especificar el repositorio de CRAN
+# Specify the CRAN repository
 repos <- "https://cloud.r-project.org/"
 
-# Comprobar si el paquete "Momocs" está instalado
+# Check if the "Momocs" package is installed
 if (!requireNamespace("Momocs", quietly = TRUE)) {
-  cat("El paquete 'Momocs' no está instalado. Instalando...\n")
+  cat("The 'Momocs' package is not installed. Installing...\n")
   install.packages("Momocs", repos = repos)
 } else {
-  cat("El paquete 'Momocs' ya está instalado.\n")
+  cat("The 'Momocs' package is already installed.\n")
 }
 
-# Comprobar si el paquete "dplyr" está instalado
+# Check if the "dplyr" package is installed
 if (!requireNamespace("dplyr", quietly = TRUE)) {
-  cat("El paquete 'dplyr' no está instalado. Instalando...\n")
+  cat("The 'dplyr' package is not installed. Installing...\n")
   install.packages("dplyr", repos = repos)
 } else {
-  cat("El paquete 'dplyr' ya está instalado.\n")
+  cat("The 'dplyr' package is already installed.\n")
 }

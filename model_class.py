@@ -163,7 +163,7 @@ class model_segmentation():
         return results_list
 
     
-    
+    #Añadir opcion de guardar las mascaras
     def slice_predict_reconstruct(self, input_folder, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio, conf=0.5,retina_mask=True):
                 # Lista de extensiones de imágenes comúnmente utilizadas
         image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']

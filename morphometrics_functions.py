@@ -9,36 +9,36 @@ import pandas as pd
 from PIL import Image
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from matplotlib.colors import LinearSegmentedColormap
 
 def install_morphometrics_packages_r():
-    # Ruta al archivo de script R que instalará los paquetes
-    ruta_script_r = r'Install_morphometrics.R'  # Asegúrate de que la ruta sea correcta
+    # Path to the R script file that will install the packages
+    r_script_path = r'Install_morphometrics.R'  # Make sure the path is correct
 
-    # Comando para ejecutar el script de R
-    command = ['Rscript', ruta_script_r]
+    # Command to execute the R script
+    command = ['Rscript', r_script_path]
 
-    # Ejecutar el comando con subprocess
+    # Execute the command using subprocess
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         
-        # Mostrar la salida del comando R
-        print("Salida del comando R:")
+        # Show the output of the R command
+        print("R command output:")
         print(result.stdout)
 
-        # Mostrar cualquier error si ocurre
+        # Show any error if it occurs
         if result.stderr:
             print("Error:")
             print(result.stderr)
 
     except subprocess.CalledProcessError as e:
-        print(f"Error al ejecutar el script R: {e.stderr}")
-
+        print(f"Error while executing the R script: {e.stderr}")
 
 
 def exploratory_morphometrics_r(
     info_data, 
     grouping_factor, 
-    directorio_input, 
+    input_directory, 
     output_directory,
     img_width_panel=750, img_height_panel=500, 
     img_width_stack=750, img_height_stack=500,
@@ -50,37 +50,37 @@ def exploratory_morphometrics_r(
     show=True
 ):
     """
-    Ejecuta el script de R con los argumentos proporcionados y opcionalmente muestra las imágenes generadas.
+    Executes the R script with the provided arguments and optionally displays the generated images.
 
-    Parámetros:
-    - info_data (str): Ruta del archivo de datos con la información a utilizar.
-    - grouping_factor (str): Nombre de la columna de agrupación en info_data.
-    - directorio_input (str): Directorio con las imágenes .jpg.
-    - img_width_panel (int): Ancho de la imagen para el gráfico del panel.
-    - img_height_panel (int): Alto de la imagen para el gráfico del panel.
-    - img_width_stack (int): Ancho de la imagen para el gráfico apilado.
-    - img_height_stack (int): Alto de la imagen para el gráfico apilado.
-    - nexamples (int): Número de ejemplos para el loop en el script R.
-    - nharmonics (int): Número de armónicos para las funciones de calibración.
-    - img_width_ptolemy (int): Ancho de la imagen para el gráfico de Ptolemy.
-    - img_height_ptolemy (int): Alto de la imagen para el gráfico de Ptolemy.
-    - img_width_deviations (int): Ancho de la imagen para el gráfico de desviaciones efourier.
-    - img_height_deviations (int): Alto de la imagen para el gráfico de desviaciones efourier.
-    - img_width_reconstructions (int): Ancho de la imagen para el gráfico de reconstrucciones efourier.
-    - img_height_reconstructions (int): Alto de la imagen para el gráfico de reconstrucciones efourier.
-    - show (bool): Si es True, mostrará las imágenes generadas usando matplotlib.
+    Parameters:
+    - info_data (str): Path to the data file with the information to be used.
+    - grouping_factor (str): Name of the grouping column in info_data.
+    - input_directory (str): Directory containing the .jpg images.
+    - img_width_panel (int): Width of the image for the panel plot.
+    - img_height_panel (int): Height of the image for the panel plot.
+    - img_width_stack (int): Width of the image for the stack plot.
+    - img_height_stack (int): Height of the image for the stack plot.
+    - nexamples (int): Number of examples for the loop in the R script.
+    - nharmonics (int): Number of harmonics for the calibration functions.
+    - img_width_ptolemy (int): Width of the image for the Ptolemy plot.
+    - img_height_ptolemy (int): Height of the image for the Ptolemy plot.
+    - img_width_deviations (int): Width of the image for the efourier deviations plot.
+    - img_height_deviations (int): Height of the image for the efourier deviations plot.
+    - img_width_reconstructions (int): Width of the image for the efourier reconstructions plot.
+    - img_height_reconstructions (int): Height of the image for the efourier reconstructions plot.
+    - show (bool): If True, it will display the generated images using matplotlib.
     """
     
-    # Ruta fija al script de R
+    # Fixed path to the R script
     script_r_path = "Exploratory_analysis.R"
     
-    # Crear el comando para ejecutar el script de R con los argumentos
+    # Create the command to execute the R script with the arguments
     command = [
         'Rscript', 
         script_r_path,
         info_data, 
         grouping_factor, 
-        directorio_input, 
+        input_directory, 
         str(img_width_panel), 
         str(img_height_panel), 
         str(img_width_stack), 
@@ -96,27 +96,27 @@ def exploratory_morphometrics_r(
         str(img_height_reconstructions)
     ]
     
-    # Ejecutar el comando con subprocess
+    # Execute the command using subprocess
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         
-        # Mostrar la salida del comando R
-        print("Salida del comando R:")
+        # Show the output of the R command
+        print("R command output:")
         print(result.stdout)
 
-        # Mostrar cualquier error si ocurre
+        # Show any errors if they occur
         if result.stderr:
             print("Error:")
             print(result.stderr)
 
-        # Si 'show' es True, intentar mostrar las imágenes generadas
+        # If 'show' is True, attempt to display the generated images
         if show:
-            # Definir las rutas de las imágenes exportadas por R
+            # Define the paths of the images exported by R
             exploratory_plots_dir = os.path.join(output_directory, 'exploratory_plots')
             panel_image_path = os.path.join(exploratory_plots_dir, 'panel_output.png')
             stack_image_path = os.path.join(exploratory_plots_dir, 'stack_output.png')
             
-            # Mostrar las imágenes de panel y stack
+            # Show the panel and stack images
             if os.path.exists(panel_image_path):
                 img = mpimg.imread(panel_image_path)
                 plt.imshow(img)
@@ -129,13 +129,13 @@ def exploratory_morphometrics_r(
                 plt.axis('off')
                 plt.show()
 
-            # Mostrar las imágenes generadas en el bucle de R (ptolemy, deviations, reconstructions)
+            # Show images generated in the loop from R (Ptolemy, deviations, reconstructions)
             for i in range(1, nexamples + 1):
                 ptolemy_image_path = os.path.join(exploratory_plots_dir, f"ptolemy_output_{i}.png")
                 deviations_image_path = os.path.join(exploratory_plots_dir, f"deviations_efourier_output_{i}.png")
                 reconstructions_image_path = os.path.join(exploratory_plots_dir, f"reconstructions_efourier_output_{i}.png")
                 
-                # Verificar y mostrar cada imagen generada en el loop
+                # Check and display each image generated in the loop
                 for image_path in [ptolemy_image_path, deviations_image_path, reconstructions_image_path]:
                     if os.path.exists(image_path):
                         img = mpimg.imread(image_path)
@@ -144,365 +144,380 @@ def exploratory_morphometrics_r(
                         plt.show()
 
     except subprocess.CalledProcessError as e:
-        print(f"Error al ejecutar el script R: {e.stderr}")
+        print(f"Error while executing the R script: {e.stderr}")
 
 
-
-def run_efourier_pca_morphometrics_r(ruta_outline_objects, nharmonics, output_directory, 
+def run_efourier_pca_morphometrics_r(path_outline_objects, nharmonics, output_directory, 
                                       img_width_boxplot=1000, img_height_boxplot=1000, 
-                                      img_width_pca=1000, img_height_pca=1000, show=False, normalize="FALSE", start_point="FALSE", allign_x="TRUE"):
+                                      img_width_pca=1000, img_height_pca=1000, show=False, 
+                                      normalize="FALSE", start_point="FALSE", align_x="TRUE"):
     """
-    Ejecuta el script de R "efourier_morphometrics.R" con los argumentos proporcionados.
+    Executes the R script "efourier_morphometrics.R" with the provided arguments.
 
-    Parámetros:
-    - ruta_outline_objects (str): Ruta al archivo RDS con los outlines.
-    - nharmonics (int): Número de armónicos para el análisis de Fourier.
-    - output_directory (str): Directorio de salida donde se guardarán los resultados.
-    - img_width_boxplot (int): Ancho de la imagen del boxplot.
-    - img_height_boxplot (int): Alto de la imagen del boxplot.
-    - img_width_pca (int): Ancho de la imagen para el gráfico PCA.
-    - img_height_pca (int): Alto de la imagen para el gráfico PCA.
-    - show (bool): Si es True, muestra el gráfico PCA generado con matplotlib.
+    Parameters:
+    - path_outline_objects (str): Path to the RDS file containing the outlines.
+    - nharmonics (int): Number of harmonics for Fourier analysis.
+    - output_directory (str): Output directory where the results will be saved.
+    - img_width_boxplot (int): Width of the boxplot image.
+    - img_height_boxplot (int): Height of the boxplot image.
+    - img_width_pca (int): Width of the PCA plot image.
+    - img_height_pca (int): Height of the PCA plot image.
+    - show (bool): If True, shows the generated PCA plot using matplotlib.
+    - normalize (str): Whether to normalize the data, "FALSE" or "TRUE".
+    - start_point (str): Whether to set the start point, "FALSE" or "TRUE".
+    - align_x (str): Whether to align the x-axis, "TRUE" or "FALSE".
     """
 
-    # Verificar que el directorio de salida existe, si no, crearlo
+    # Check if the output directory exists, if not, create it
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    # Ruta del script R
+    # Path to the R script
     script_r_path = "efourier_morphometrics.R"
 
-    # Crear el comando para ejecutar el script R con los argumentos
+    # Create the command to execute the R script with the provided arguments
     command = [
         'Rscript', 
         script_r_path, 
-        str(ruta_outline_objects),  # Ruta al archivo RDS con los outlines
-        str(nharmonics),       # Número de armónicos
-        str(output_directory),      # Directorio de salida
-        str(img_width_boxplot),  # Ancho del boxplot
-        str(img_height_boxplot), # Alto del boxplot
-        str(img_width_pca),     # Ancho de la imagen PCA
-        str(img_height_pca),
-        str(normalize),
-        str(start_point),
-        str(allign_x)
+        str(path_outline_objects),  # Path to the RDS file with outlines
+        str(nharmonics),            # Number of harmonics
+        str(output_directory),      # Output directory
+        str(img_width_boxplot),     # Boxplot image width
+        str(img_height_boxplot),    # Boxplot image height
+        str(img_width_pca),         # PCA image width
+        str(img_height_pca),        # PCA image height
+        str(normalize),             # Normalize the data
+        str(start_point),           # Set the start point
+        str(align_x)                # Align the x-axis
     ]
 
-    # Ejecutar el comando con subprocess
+    # Execute the command using subprocess
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         
-        # Mostrar la salida del comando R
-        print("Salida del comando R:")
+        # Show the output of the R command
+        print("R command output:")
         print(result.stdout)
 
-        # Mostrar cualquier error si ocurre
+        # Show any errors if they occur
         if result.stderr:
             print("Error:")
             print(result.stderr)
 
-        # Si 'show' es True, intentar mostrar el gráfico PCA
+        # If 'show' is True, attempt to display the PCA plot
         if show:
             pca_image_path = os.path.join(output_directory, "efourier_results", "pca_output.png")
             if os.path.exists(pca_image_path):
                 img = mpimg.imread(pca_image_path)
                 plt.imshow(img)
-                plt.axis('off')  # Desactivar los ejes
+                plt.axis('off')  # Turn off the axes
                 plt.show()
 
     except subprocess.CalledProcessError as e:
-        print(f"Error al ejecutar el script R: {e.stderr}")
+        print(f"Error while executing the R script: {e.stderr}")
 
 
-
-
-def run_plot_pca_morphometrics_r(ruta_pca_objects, output_directory, img_width_pca=1000, img_height_pca=1000, 
+def run_plot_pca_morphometrics_r(input_directory, output_directory, img_width_pca=1000, img_height_pca=1000, 
                                  grouping_factor="", PC_axis1=1, PC_axis2=2, 
                                  chull_layer="FALSE", chullfilled_layer="FALSE", show=True):
     """
-    Ejecuta el script de R "plot_pca_morphometrics.R" con los argumentos proporcionados.
+    Executes the R script "plot_pca_morphometrics.R" with the provided arguments.
 
-    Parámetros:
-    - ruta_pca_objects (str): Ruta al archivo RDS con el objeto PCA.
-    - output_directory (str): Directorio de salida donde se guardarán los resultados.
-    - img_width_pca (int): Ancho de la imagen para el gráfico PCA.
-    - img_height_pca (int): Alto de la imagen para el gráfico PCA.
-    - grouping_factor (str): Factor de agrupamiento opcional para la visualización PCA.
-    - PC_axis1 (int): Eje principal de la PCA en el gráfico (por defecto, 1).
-    - PC_axis2 (int): Eje secundario de la PCA en el gráfico (por defecto, 2).
-    - chull_layer (str): Si es "TRUE", añade una capa convex hull.
-    - chullfilled_layer (str): Si es "TRUE", añade una capa convex hull llena.
-    - show (bool): Si es True, muestra el gráfico PCA generado con matplotlib.
+    Parameters:
+    - input_directory (str): Path to the directory containing the PCA object.
+    - output_directory (str): Output directory where the results will be saved.
+    - img_width_pca (int): Width of the PCA plot image.
+    - img_height_pca (int): Height of the PCA plot image.
+    - grouping_factor (str): Optional grouping factor for the PCA visualization.
+    - PC_axis1 (int): Primary axis for PCA in the plot (default is 1).
+    - PC_axis2 (int): Secondary axis for PCA in the plot (default is 2).
+    - chull_layer (str): If "TRUE", adds a convex hull layer.
+    - chullfilled_layer (str): If "TRUE", adds a filled convex hull layer.
+    - show (bool): If True, shows the generated PCA plot using matplotlib.
     """
 
-    # Verificar que el directorio de salida existe, si no, crearlo
+    # Check if the output directory exists, if not, create it
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    # Ruta del script R
+    # Path to the R script
     script_r_path = "plot_pca_morphometrics.R"
 
-    # Crear el comando para ejecutar el script R con los argumentos
+    # Create the command to execute the R script with the provided arguments
     command = [
         'Rscript', 
         script_r_path, 
-        str(ruta_pca_objects),      # Ruta al archivo RDS con el objeto PCA
-        str(output_directory),      # Directorio de salida
-        str(img_width_pca),         # Ancho de la imagen PCA
-        str(img_height_pca),        # Alto de la imagen PCA
-        str(grouping_factor),       # Factor de agrupamiento opcional
-        str(PC_axis1),              # Eje PC1
-        str(PC_axis2),                      # Eje PC2
-        str(chull_layer),           # Capa de convex hull
-        str(chullfilled_layer)      # Capa de convex hull llena
+        str(input_directory),      # Path to the directory with the PCA object
+        str(output_directory),      # Output directory
+        str(img_width_pca),         # PCA image width
+        str(img_height_pca),        # PCA image height
+        str(grouping_factor),       # Optional grouping factor
+        str(PC_axis1),              # PC1 axis
+        str(PC_axis2),              # PC2 axis
+        str(chull_layer),           # Convex hull layer
+        str(chullfilled_layer)      # Filled convex hull layer
     ]
 
-    # Ejecutar el comando con subprocess
+    # Execute the command using subprocess
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         
-        # Mostrar la salida del comando R
-        print("Salida del comando R:")
+        # Show the output of the R command
+        print("R command output:")
         print(result.stdout)
 
-        # Mostrar cualquier error si ocurre
+        # Show any errors if they occur
         if result.stderr:
             print("Error:")
             print(result.stderr)
 
-        # Si 'show' es True, intentar mostrar el gráfico PCA
+        # If 'show' is True, attempt to display the PCA plot
         pca_image_path = os.path.join(output_directory, "efourier_results", "pca_plot.png")
         if show and os.path.exists(pca_image_path):
             img = mpimg.imread(pca_image_path)
             plt.imshow(img)
-            plt.axis('off')  # Desactivar los ejes
+            plt.axis('off')  # Turn off the axes
             plt.show()
 
     except subprocess.CalledProcessError as e:
-        print(f"Error al ejecutar el script R: {e.stderr}")
+        print(f"Error while executing the R script: {e.stderr}")
 
 
-def run_kmeans_efourier_r(ruta_pca_objects, output_directory, max_clusters, img_width_pca=1000, img_height_pca=1000,
-                          plot_xlim=250, plot_ylim=250, show=True):
-    """
-    Ejecuta el script de R "kmeans_Efourier_morphometric.R" con los argumentos proporcionados.
-
-    Parámetros:
-    - ruta_pca_objects (str): Ruta al archivo RDS con el objeto PCA.
-    - output_directory (str): Directorio de salida donde se guardarán los resultados.
-    - max_clusters (int): Número máximo de clusters a utilizar en k-means.
-    - img_width_pca (int): Ancho de la imagen para el gráfico PCA.
-    - img_height_pca (int): Alto de la imagen para el gráfico PCA.
-    - plot_xlim (int): Límite del gráfico en el eje X.
-    - plot_ylim (int): Límite del gráfico en el eje Y.
-    - show (bool): Si es True, muestra el gráfico generado con matplotlib.
-    """
-    
-    # Verificar que el directorio de salida exista, si no, crearlo
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
-
-    # Ruta del script R
-    script_r_path = "kmeans_efourier_morphometrics.R"
-    
-    # Crear el comando para ejecutar el script R con los argumentos
-    command = [
-        'Rscript',
-        script_r_path,
-        str(ruta_pca_objects),      # Ruta al archivo RDS con el objeto PCA
-        str(output_directory),      # Directorio de salida
-        str(img_width_pca),         # Ancho de la imagen PCA
-        str(img_height_pca),        # Alto de la imagen PCA
-        str(max_clusters),          # Número máximo de clusters
-        str(plot_xlim),             # Límite en X
-        str(plot_ylim),           # Límite en Y
-    ]
-
-    # Ejecutar el comando con subprocess
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        
-        # Mostrar la salida del comando R
-        print("Salida del comando R:")
-        print(result.stdout)
-
-        # Mostrar cualquier error si ocurre
-        if result.stderr:
-            print("Error:")
-            print(result.stderr)
-
-        # Si 'show' es True, intentar mostrar los gráficos generados
-        
-        # Nombre de la imagen final del mosaico
-        nombre_mosaico = os.path.join(output_directory,"kmeans_results",'kmeans_shape_plot.jpg')
-        ruta_carpeta = os.path.join(output_directory, "kmeans_results")
-        
-        # Obtener y ordenar las imágenes por su nombre
-        imagenes = sorted(os.listdir(ruta_carpeta))
-
-        # Cargar todas las imágenes en un diccionario organizado por escenario (k)
-        imagenes_dict = {}
-
-        # Expresión regular para verificar el formato del nombre de archivo
-        pattern = r"centroides_k(\d+)_cluster_(\d+)\.jpg"
-
-        for imagen in imagenes:
-            if imagen.endswith('.jpg'):
-                # Usar la expresión regular para extraer los números de k y y
-                match = re.match(pattern, imagen)
-                if match:
-                    k = int(match.group(1))  # Obtiene el número de clusters (k)
-                    y = int(match.group(2))  # Obtiene el número del cluster (y)
-                    
-                    # Añadir la imagen al diccionario
-                    if k not in imagenes_dict:
-                        imagenes_dict[k] = []
-                    imagenes_dict[k].append((y, os.path.join(ruta_carpeta, imagen)))
-                else:
-                    print(f"Advertencia: archivo {imagen} no cumple con el formato esperado.")
-                    continue
-
-        # Ordenar los clusters dentro de cada k
-        for k in imagenes_dict:
-            imagenes_dict[k].sort()  # Ordena las imágenes por el índice y dentro de cada k
-
-        # Cargar las imágenes y calcular dimensiones del mosaico
-        imagenes_cargadas = {k: [Image.open(imagen[1]) for imagen in imagenes_dict[k]] for k in imagenes_dict}
-        ancho, alto = imagenes_cargadas[1][0].size  # Asumimos que todas las imágenes tienen el mismo tamaño
-        alto_total = sum([alto for k in imagenes_cargadas])  # Altura total del mosaico
-        ancho_maximo = max([ancho * len(imagenes_cargadas[k]) for k in imagenes_cargadas])  # Ancho máximo del mosaico
-
-        # Crear imagen en blanco para el mosaico
-        mosaico = Image.new('RGB', (ancho_maximo, alto_total), (255, 255, 255))
-
-        # Colocar las imágenes en el mosaico
-        y_offset = 0
-        for k in sorted(imagenes_cargadas):
-            x_offset = 0
-            for img in imagenes_cargadas[k]:
-                mosaico.paste(img, (x_offset, y_offset))
-                x_offset += ancho
-            y_offset += alto
-
-        # Guardar
-        mosaico.save(nombre_mosaico)
-        
-
-        # Eliminar las imágenes utilizadas
-        for k in imagenes_dict:
-            for _, ruta_imagen in imagenes_dict[k]:
-                os.remove(ruta_imagen)  # Elimina cada imagen utilizada en el mosaico
-                print(f"Eliminada: {ruta_imagen}")
-
-        
-        
-        if show and os.path.exists(nombre_mosaico):
-            img = mpimg.imread(nombre_mosaico)
-            plt.imshow(img)
-            plt.axis('off')  # Desactivar los ejes
-            plt.show()
-
-        pca_image_path = os.path.join(output_directory, "kmeans_results", "Elbow_method_plot.jpg")
-        if show and os.path.exists(pca_image_path):
-            img = mpimg.imread(pca_image_path)
-            plt.imshow(img)
-            plt.axis('off')  # Desactivar los ejes
-            plt.show()
-
-    except subprocess.CalledProcessError as e:
-        print(f"Error al ejecutar el script R: {e.stderr}")
-
-
-
-
-def run_obtain_kmeans_classification_r(ruta_pca_objects, output_directory, img_width=750, img_height=500, 
-                                       ruta_kmeans_objects="", PC_axis1=1, PC_axis2=2, 
+def run_obtain_kmeans_classification_r(input_directory, output_directory, img_width=750, img_height=500, 
+                                       kmeans_objects_path="", PC_axis1=1, PC_axis2=2, 
                                        chull_layer="FALSE", chullfilled_layer="FALSE", show=True):
     """
-    Ejecuta el script de R "Obtain_kmeans_classification.R" con los argumentos proporcionados.
+    Executes the R script "Obtain_kmeans_classification.R" with the provided arguments.
 
-    Parámetros:
-    - ruta_pca_objects (str): Ruta al archivo RDS con el objeto PCA.
-    - output_directory (str): Directorio de salida donde se guardarán los resultados.
-    - img_width (int): Ancho de la imagen para el gráfico de clustering.
-    - img_height (int): Alto de la imagen para el gráfico de clustering.
-    - ruta_kmeans_objects (str): Ruta al archivo RDS con el objeto de clustering K-means.
-    - PC_axis1 (int): Eje principal de la PCA en el gráfico (por defecto, 1).
-    - PC_axis2 (int): Eje secundario de la PCA en el gráfico (por defecto, 2).
-    - chull_layer (str): Si es "TRUE", añade una capa convex hull.
-    - chullfilled_layer (str): Si es "TRUE", añade una capa convex hull llena.
-    - show (bool): Si es True, muestra el gráfico de clustering generado con matplotlib.
+    Parameters:
+    - input_directory (str): Path to the directory containing the PCA object.
+    - output_directory (str): Path to the output directory where results will be saved.
+    - img_width (int): Width of the image for the clustering plot.
+    - img_height (int): Height of the image for the clustering plot.
+    - kmeans_objects_path (str): Path to the RDS file with the k-means clustering object.
+    - PC_axis1 (int): Principal PCA axis for the plot (default is 1).
+    - PC_axis2 (int): Secondary PCA axis for the plot (default is 2).
+    - chull_layer (str): If "TRUE", adds a convex hull layer.
+    - chullfilled_layer (str): If "TRUE", adds a filled convex hull layer.
+    - show (bool): If True, displays the generated clustering plot using matplotlib.
     """
 
-    # Verificar que el directorio de salida existe, si no, crearlo
+    # Check if the output directory exists, create it if not
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    # Ruta del script R
+    # Path to the R script
     script_r_path = "Obtain_kmeans_classification.R"
 
-    # Crear el comando para ejecutar el script R con los argumentos
+    # Create the command to execute the R script with the provided arguments
     command = [
         'Rscript', 
         script_r_path, 
-        str(ruta_pca_objects),      # Ruta al archivo RDS con el objeto PCA
-        str(output_directory),      # Directorio de salida
-        str(img_width),             # Ancho de la imagen
-        str(img_height),            # Alto de la imagen
-        str(ruta_kmeans_objects),   # Ruta al archivo RDS del objeto kmeans
-        str(PC_axis1),              # Eje PC1
-        str(PC_axis2),              # Eje PC2
-        str(chull_layer),           # Capa de convex hull
-        str(chullfilled_layer)      # Capa de convex hull llena
+        str(input_directory),      # Path to the directory with the PCA object
+        str(output_directory),      # Output directory
+        str(img_width),             # Image width
+        str(img_height),            # Image height
+        str(kmeans_objects_path),   # Path to the k-means RDS file
+        str(PC_axis1),              # PC1 axis
+        str(PC_axis2),              # PC2 axis
+        str(chull_layer),           # Convex hull layer
+        str(chullfilled_layer)      # Filled convex hull layer
     ]
 
-    # Ejecutar el comando con subprocess
+    # Execute the command with subprocess
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         
-        # Mostrar la salida del comando R
-        print("Salida del comando R:")
+        # Show the output from the R command
+        print("R command output:")
         print(result.stdout)
 
-        # Mostrar cualquier error si ocurre
+        # Show any errors if they occur
         if result.stderr:
             print("Error:")
             print(result.stderr)
 
-        # Si 'show' es True, intentar mostrar el gráfico de clustering
+        # If 'show' is True, attempt to display the clustering plot
         clustered_image_path = os.path.join(output_directory, "kmeans_results", "pca_plot_clustered.png")
         if show and os.path.exists(clustered_image_path):
             img = mpimg.imread(clustered_image_path)
             plt.imshow(img)
-            plt.axis('off')  # Desactivar los ejes
+            plt.axis('off')  # Disable axes
             plt.show()
 
     except subprocess.CalledProcessError as e:
-        print(f"Error al ejecutar el script R: {e.stderr}")
+        print(f"Error executing the R script: {e.stderr}")
 
 
+def run_kmeans_efourier_r(pca_objects_path, output_directory, max_clusters, img_width_pca=1000, img_height_pca=1000,
+                          plot_xlim=250, plot_ylim=250, show=True):
+    """
+    Executes the R script "kmeans_Efourier_morphometric.R" with the provided arguments.
 
+    Parameters:
+    - pca_objects_path (str): Path to the RDS file containing the PCA object.
+    - output_directory (str): Directory where the results will be saved.
+    - max_clusters (int): Maximum number of clusters to use in k-means.
+    - img_width_pca (int): Width of the PCA image.
+    - img_height_pca (int): Height of the PCA image.
+    - plot_xlim (int): X-axis limit for the plot.
+    - plot_ylim (int): Y-axis limit for the plot.
+    - show (bool): If True, displays the generated plot with matplotlib.
+    """
 
+    # Verify that the output directory exists, create it if not
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
 
+    # Path to the R script
+    script_r_path = "kmeans_efourier_morphometrics.R"
+    
+    # Create the command to execute the R script with the provided arguments
+    command = [
+        'Rscript',
+        script_r_path,
+        str(pca_objects_path),      # Path to the PCA object RDS file
+        str(output_directory),      # Output directory
+        str(img_width_pca),         # PCA image width
+        str(img_height_pca),        # PCA image height
+        str(max_clusters),          # Maximum number of clusters
+        str(plot_xlim),             # X-axis limit
+        str(plot_ylim),             # Y-axis limit
+    ]
 
+    # Execute the command with subprocess
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        
+        # Show the output from the R command
+        print("R command output:")
+        print(result.stdout)
 
+        # Show any errors if they occur
+        if result.stderr:
+            print("Error:")
+            print(result.stderr)
+
+        # If 'show' is True, attempt to display the generated plots
+        
+        # Final mosaic image name
+        mosaic_image_name = os.path.join(output_directory, "kmeans_results", 'kmeans_shape_plot.jpg')
+        folder_path = os.path.join(output_directory, "kmeans_results")
+        
+        # Get and sort images by their names
+        images = sorted(os.listdir(folder_path))
+
+        # Load all images into a dictionary organized by cluster number (k)
+        images_dict = {}
+
+        # Regular expression to check the file name format
+        pattern = r"centroids_k(\d+)_cluster_(\d+)\.jpg"
+
+        for image in images:
+            if image.endswith('.jpg'):
+                # Use the regular expression to extract the cluster number k and index y
+                match = re.match(pattern, image)
+                if match:
+                    k = int(match.group(1))  # Get the number of clusters (k)
+                    y = int(match.group(2))  # Get the cluster index (y)
+                    
+                    # Add the image to the dictionary
+                    if k not in images_dict:
+                        images_dict[k] = []
+                    images_dict[k].append((y, os.path.join(folder_path, image)))
+                else:
+                    print(f"Warning: file {image} does not follow the expected format.")
+                    continue
+
+        # Sort the clusters within each k
+        for k in images_dict:
+            images_dict[k].sort()  # Sort images by index y within each k
+
+        # Load the images and calculate the mosaic dimensions
+        loaded_images = {k: [Image.open(image[1]) for image in images_dict[k]] for k in images_dict}
+        width, height = loaded_images[1][0].size  # Assume all images have the same size
+        total_height = sum([height for k in loaded_images])  # Total height of the mosaic
+        max_width = max([width * len(loaded_images[k]) for k in loaded_images])  # Maximum width of the mosaic
+
+        # Create a blank image for the mosaic
+        mosaic = Image.new('RGB', (max_width, total_height), (255, 255, 255))
+
+        # Place the images in the mosaic
+        y_offset = 0
+        for k in sorted(loaded_images):
+            x_offset = 0
+            for img in loaded_images[k]:
+                mosaic.paste(img, (x_offset, y_offset))
+                x_offset += width
+            y_offset += height
+
+        # Save the mosaic image
+        mosaic.save(mosaic_image_name)
+        
+        # Remove the used images
+        for k in images_dict:
+            for _, image_path in images_dict[k]:
+                os.remove(image_path)  # Delete each image used in the mosaic
+                print(f"Deleted: {image_path}")
+
+        # If 'show' is True and the mosaic exists, display it
+        if show and os.path.exists(mosaic_image_name):
+            img = mpimg.imread(mosaic_image_name)
+            plt.imshow(img)
+            plt.axis('off')  # Disable axes
+            plt.show()
+
+        # Check and display the elbow method plot if available
+        elbow_image_path = os.path.join(output_directory, "kmeans_results", "Elbow_method_plot.jpg")
+        if show and os.path.exists(elbow_image_path):
+            img = mpimg.imread(elbow_image_path)
+            plt.imshow(img)
+            plt.axis('off')  # Disable axes
+            plt.show()
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing the R script: {e.stderr}")
 
 
 def process_images_and_perform_pca(directory, working_directory, n_components=50, k_max=10, std_multiplier=2):
+    """
+    This function processes binary images in a specified directory, performs Principal Component Analysis (PCA) on the images, 
+    and evaluates different KMeans clustering solutions. It also generates visualizations for the PCA components and clusters.
+    
+    Parameters:
+    - directory (str): The path to the directory containing the input image files (e.g., '.png', '.jpg').
+    - working_directory (str): The directory where the output files will be saved.
+    - n_components (int, default=50): The number of principal components to retain in the PCA. 
+    - k_max (int, default=10): The maximum number of clusters to evaluate for KMeans clustering.
+    - std_multiplier (float, default=2): A multiplier used to adjust the standard deviation of the principal components for visualization. 
+      It controls how much variance from the mean shape is visualized.
+    
+    Returns:
+    - Saves several output files:
+      - 'pca_values.txt': The PCA values for each image (first 10 principal components).
+      - 'explained_variance.txt': The explained variance ratio for each principal component.
+      - A series of images visualizing the influence of each principal component.
+      - KMeans clustering centroid images for different values of k.
+      - A combined "staircase" image of centroids.
+      - An elbow plot showing the Within-Group Sum of Squares (WGSS) for different k values.
+    """
     # Step 1: Load images and convert them to binary arrays
     image_files = [f for f in os.listdir(directory) if f.endswith(('.png', '.jpg'))]
+    # Create a custom color map from white to light brown
+    colors = ["white", "#f5b041"]  # White to Light Brown
+    cmap_brown = LinearSegmentedColormap.from_list("custom_cmap", colors)
     
     images = []
     for image_file in image_files:
         image_path = os.path.join(directory, image_file)
-        image = Image.open(image_path).convert('1')  # Convert to binary
-        image_array = np.array(image)  # Convert image to numpy array
+        image = Image.open(image_path).convert('1')  # Convert to binary image
+        image_array = np.array(image)  # Convert the image to a numpy array
         image_array = np.invert(image_array)  # Invert the binary image
         images.append(image_array)
     
-    # Step 2: Flatten the list of images to a matrix of shape (k, m*n), where k is the number of images
+    # Step 2: Flatten the list of images into a matrix of shape (k, m*n), where k is the number of images
     images = np.array(images)
-    flattened_images = images.reshape(images.shape[0], -1)  # Flatten the images
+    flattened_images = images.reshape(images.shape[0], -1)  # Flatten the images into vectors
     print("Flattened image matrix shape:", flattened_images.shape)
 
     # Perform PCA to reduce dimensionality
@@ -516,7 +531,7 @@ def process_images_and_perform_pca(directory, working_directory, n_components=50
     df_pca = pd.DataFrame(
         pca_images[:, :10],  # Take only the first 10 principal components
         columns=[f"PC{i+1}" for i in range(10)],  # Column names (PC1 to PC10)
-        index=image_files  # Use actual image filenames as index
+        index=image_files  # Use actual image filenames as the index
     )
 
     # Save the PCA values DataFrame as a TXT file
@@ -542,27 +557,27 @@ def process_images_and_perform_pca(directory, working_directory, n_components=50
         direction_pc = pca.components_[pc].reshape(images.shape[1], images.shape[2])  # Direction of the PC in the original space
 
         # Calculate the adjusted shapes based on mean shape and standard deviation
-        shape_pos = mean_shape + std_multiplier * std_pc * direction_pc  # Mean + std_multiplier*std
-        shape_neg = mean_shape - std_multiplier * std_pc * direction_pc  # Mean - std_multiplier*std
+        shape_pos = mean_shape + std_multiplier * std_pc * direction_pc  # Mean + std_multiplier * std
+        shape_neg = mean_shape - std_multiplier * std_pc * direction_pc  # Mean - std_multiplier * std
 
-        # Create a figure with 3 images: (-std_multiplier std, mean, +std_multiplier std)
+        # Create a figure with 3 images: (-std_multiplier * std, mean, +std_multiplier * std)
         plt.figure(figsize=(12, 4))
 
-        # Mean shape - std_multiplier std
+        # Mean shape - std_multiplier * std
         plt.subplot(1, 3, 1)
-        plt.imshow(shape_neg > 0.5, cmap="Wistia")  # Threshold to binarize
+        plt.imshow(shape_neg > 0.5, cmap=cmap_brown)  # Threshold to binarize the image
         plt.title(f"PC{pc+1}: Mean - {std_multiplier}*std")
         plt.axis("off")
 
         # Mean shape
         plt.subplot(1, 3, 2)
-        plt.imshow(mean_shape > 0.5, cmap="Wistia")  # Threshold to binarize
+        plt.imshow(mean_shape > 0.5, cmap=cmap_brown)  # Threshold to binarize the image
         plt.title(f"PC{pc+1}: Mean")
         plt.axis("off")
 
-        # Mean shape + std_multiplier std
+        # Mean shape + std_multiplier * std
         plt.subplot(1, 3, 3)
-        plt.imshow(shape_pos > 0.5, cmap="Wistia")  # Threshold to binarize
+        plt.imshow(shape_pos > 0.5, cmap=cmap_brown)  # Threshold to binarize the image
         plt.title(f"PC{pc+1}: Mean + {std_multiplier}*std")
         plt.axis("off")
 
@@ -571,44 +586,78 @@ def process_images_and_perform_pca(directory, working_directory, n_components=50
         plt.savefig(os.path.join(working_directory, f"pc{pc+1}_influence.jpg"), format="jpg")
         plt.show()
 
+    # List to store the paths of images generated for each k
+    cluster_images = []
+
     # Step 4: Evaluate KMeans for different values of k (1 to k_max)
-    distortions = []  # To store inertia for each k
-    for k in range(1, k_max):
+    wgss = []  # To store WGSS (Within-Group Sum of Squares) for each k
+    for k in range(1, k_max + 1):
         kmeans = KMeans(n_clusters=k, random_state=42)
         kmeans.fit(pca_images)
-        distortions.append(kmeans.inertia_)
+
+        # Calculate WGSS (Within-Group Sum of Squares)
+        labels = kmeans.labels_
+        cluster_centers = kmeans.cluster_centers_
+        wgss_value = sum(
+            np.sum((pca_images[labels == cluster] - cluster_centers[cluster]) ** 2)
+            for cluster in range(k)
+        )
+        wgss.append(wgss_value)
 
         # Visualize the centroids of each cluster
         centroids_pca = kmeans.cluster_centers_
 
-        # Project centroids back to original space
+        # Project centroids back to the original space
         centroids_original = pca.inverse_transform(centroids_pca)
 
-        # Visualize centroids
-        rows = (k + 4) // 5  # Calculate number of rows
-        cols = min(k, 5)  # Limit to 5 columns per row (maximum)
-
-        plt.figure(figsize=(15, 3 * rows))  # Adjust figure size based on rows
-
+        # Visualize centroids in a single row
+        plt.figure(figsize=(3 * k, 3))  # Adjust figure size to accommodate k images in a single row
         for i, centroid in enumerate(centroids_original):
             # Convert the centroid (vector) to a binary image
             binary_image = centroid.reshape(images.shape[1], images.shape[2]) > 0.5  # Binarize with threshold
 
             # Create a subplot
-            ax = plt.subplot(rows, cols, i + 1)
-            ax.imshow(binary_image, cmap="Wistia")  # Use a brown colormap
+            ax = plt.subplot(1, k, i + 1)
+            ax.imshow(binary_image, cmap=cmap_brown)  # Use a brown colormap
             ax.set_title(f'Centroid {i + 1}')
             ax.axis('off')
 
         # Save centroid image as JPG
+        output_path = os.path.join(working_directory, f"centroids_k_{k}.jpg")
+        cluster_images.append(output_path)  # Add the image path to the list
         plt.tight_layout()
-        plt.savefig(os.path.join(working_directory, f"centroids_k_{k}.jpg"), format="jpg")
+        plt.savefig(output_path, format="jpg")
         plt.show()
 
-    # Step 5: Evaluate optimal number of clusters using the elbow method
-    plt.plot(range(1, k_max), distortions, marker='o')
+    # Step 6: Combine all cluster images into one "staircase" image
+    combined_height = 0
+    max_width = 0
+    images_to_combine = []
+
+    for image_path in cluster_images:
+        img = Image.open(image_path)
+        images_to_combine.append(img)
+        combined_height += img.height
+        max_width = max(max_width, img.width)
+
+    # Create a new blank image with the total height and max width
+    staircase_image = Image.new('RGB', (max_width, combined_height), (255, 255, 255))
+
+    # Paste each image one below the other
+    y_offset = 0
+    for img in images_to_combine:
+        staircase_image.paste(img, (0, y_offset))
+        y_offset += img.height
+
+    # Save the final combined "staircase" image
+    staircase_image_path = os.path.join(working_directory, "centroids_staircase.jpg")
+    staircase_image.save(staircase_image_path)
+    print(f"Combined staircase image saved as {staircase_image_path}")
+
+    # Step 7: Evaluate optimal number of clusters using the WGSS Elbow method
+    plt.plot(range(1, k_max + 1), wgss, marker='o')
     plt.xlabel('Number of clusters (k)')
-    plt.ylabel('Inertia (Distortion)')
-    plt.title('Elbow Method for Selecting k')
-    plt.savefig(os.path.join(working_directory, "elbow_plot.jpg"), format="jpg")
+    plt.ylabel('WGSS (Within-Group Sum of Squares)')
+    plt.title('Elbow Method for Selecting k (WGSS)')
+    plt.savefig(os.path.join(working_directory, "elbow_plot_wgss.jpg"), format="jpg")
     plt.show()
