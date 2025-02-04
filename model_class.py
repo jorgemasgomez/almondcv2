@@ -11,235 +11,261 @@ from sahi.predict import get_sliced_prediction,  AutoDetectionModel
 from sahi.slicing import slice_image
 from PIL import Image
 
-class model_segmentation():
+
+class ModelSegmentation():
     def __init__(self, working_directory):
-        self.working_directory=working_directory
+        """
+        Initializes the model with the specified working directory and sets the device to either CPU or GPU.
+        
+        Parameters:
+            working_directory (str): The directory where the input data and results will be stored.
+        
+        Returns:
+            None
+        """
+        self.working_directory = working_directory
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.device=device
+        self.device = device
         if torch.cuda.is_available():
-            # Obtener el índice del dispositivo actual
             gpu_index = torch.cuda.current_device()
-
-            # Obtener el nombre de la GPU
             gpu_name = torch.cuda.get_device_name(gpu_index)
-
-            # Obtener la memoria total de la GPU
             gpu_memory = torch.cuda.get_device_properties(gpu_index).total_memory
-
-            # Convertir la memoria de bytes a gigabytes
             gpu_memory_gb = gpu_memory / (1024 ** 3)
-
-            # Imprimir las características de la GPU
-            print(f"GPU detectada: {gpu_name}")
-            print(f"Memoria total de la GPU: {gpu_memory_gb:.2f} GB")
+            print(f"Detected GPU: {gpu_name}")
+            print(f"Total GPU Memory: {gpu_memory_gb:.2f} GB")
         else:
-            print("No se detectó ninguna GPU. Usando CPU.")
+            print("No GPU detected. Using CPU.")
 
-    def train_segmentation_model(self, input_zip, pre_model="yolov8n-seg.pt", epochs=100, imgsz=640,batch=-1, name_segmentation="",
+    def train_segmentation_model(self, input_zip, pre_model="yolov8n-seg.pt", epochs=100, imgsz=640, batch=-1, name_segmentation="",
                                  retina_masks=True, pose=False, keypoints_pose=1):
+        """
+        Trains the segmentation model using a YOLO segmentation file.
 
-        #Partimos del archivo en formato de YOLO Segmentation obtenido en CVAT
+        Parameters:
+            input_zip (str): Path to the input zip file containing images and annotations.
+            pre_model (str): Path to the pretrained model (default: "yolov8n-seg.pt").
+            epochs (int): Number of epochs for training (default: 100).
+            imgsz (int): Image size for training (default: 640).
+            batch (int): Batch size for training (default: -1, auto batch size).
+            name_segmentation (str): Name for the segmentation model's output (default: "").
+            retina_masks (bool): Whether to use retina masks for segmentation (default: True).
+            pose (bool): Whether to train the model with pose keypoints (default: False).
+            keypoints_pose (int): The number of pose keypoints to use (default: 1).
 
-        input_zip_no_extension, extension=os.path.splitext(input_zip)
-        output_folder_zip=os.path.join(self.working_directory,input_zip_no_extension)
-        self.output_folder_zip=output_folder_zip
-            # Verificar si la carpeta ya existe
+        Returns:
+            results_test_set (list): List of results containing the predicted masks for the test set.
+        """
+        input_zip_no_extension, extension = os.path.splitext(input_zip)
+        output_folder_zip = os.path.join(self.working_directory, input_zip_no_extension)
+        self.output_folder_zip = output_folder_zip
+
         if os.path.exists(self.output_folder_zip):
-        # Si existe, eliminar todo el contenido
             shutil.rmtree(self.output_folder_zip)
         os.makedirs(self.output_folder_zip, exist_ok=True)
-        zip_file_path=os.path.join(self.working_directory,input_zip)
+
+        zip_file_path = os.path.join(self.working_directory, input_zip)
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(self.output_folder_zip)
 
-        # Modificamos el arccomohivo YAML para adaptarlo al input de YOLO training
+        yaml_file = os.path.join(self.output_folder_zip, "data.yaml")
+        self.yaml_file = yaml_file
 
-        yaml_file = os.path.join(self.output_folder_zip,"data.yaml") 
-        self.yaml_file=yaml_file
-
-        with open(self.yaml_file, 'r') as file:  
+        with open(self.yaml_file, 'r') as file:
             data = yaml.safe_load(file)
 
-        # Crear un nuevo diccionario para los datos modificados
         modified_data = {
-            'path': self.output_folder_zip,  # Cambiar 'path' a la primera fila
-            'train': 'images/Train',  # Borrar referencia a Train.txt
-            'val': 'images/Validation',  # Borrar referencia a Validation.txt
-            'test': 'images/Test'  # Borrar referencia a Test.txt
+            'path': self.output_folder_zip,
+            'train': 'images/Train',
+            'val': 'images/Validation',
+            'test': 'images/Test'
         }
-        if pose is True:
+        if pose:
             modified_data = {
-            'path': self.output_folder_zip,  # Cambiar 'path' a la primera fila
-            'train': 'images/Train',  # Borrar referencia a Train.txt
-            'val': 'images/Validation',  # Borrar referencia a Validation.txt
-            'test': 'images/Test',
-              "kpt_shape":[keypoints_pose, 3]    # Borrar referencia a Test.txt
-        }
-        
-        # Agregar 'names' al final
+                'path': self.output_folder_zip,
+                'train': 'images/Train',
+                'val': 'images/Validation',
+                'test': 'images/Test',
+                "kpt_shape": [keypoints_pose, 3]
+            }
+
         if 'names' in data:
             modified_data['names'] = data['names']
-        # Escribir de nuevo el archivo YAML
+
         with open(self.yaml_file, 'w') as file:
             yaml.dump(modified_data, file, default_flow_style=False)
 
-
-        #Creamos un directorio para guardar los resultados del training y de las predicciones
-
-        results_models_directory=os.path.join(self.working_directory,f"results_models_segmentation_{name_segmentation}")
-        self.results_models_directory=results_models_directory
+        results_models_directory = os.path.join(self.working_directory, f"results_models_segmentation_{name_segmentation}")
+        self.results_models_directory = results_models_directory
         os.makedirs(self.results_models_directory, exist_ok=True)
 
-        # Entrenamos el modelo
-        model = YOLO(pre_model)  # load a pretrained model (recommended for training)
+        model = YOLO(pre_model)
         model.to(self.device)
-        model.train(data=self.yaml_file, epochs=epochs, imgsz=imgsz,batch=batch, project=self.results_models_directory, name="results_training")
+        model.train(data=self.yaml_file, epochs=epochs, imgsz=imgsz, batch=batch, project=self.results_models_directory, name="results_training")
 
-        # Se habran generado los resultados para en los validación y training sets, para tener el del test set lo hacemos a continuación
-        test_set_folder=os.path.join(output_folder_zip,"images/Test/")
-        self.test_set_folder=test_set_folder
-        
-        #results devuelve una lista por foto, con una lista de arrays con las coordenadas de cada uno de los objetos segmentados.
-        results_test_set = model.predict(self.test_set_folder, imgsz=imgsz, show= False, save=True, show_boxes=False, project=results_models_directory, save_txt=True,
-                                          name="predictions_test", retina_masks=retina_masks)
-        
+        test_set_folder = os.path.join(self.output_folder_zip, "images/Test/")
+        self.test_set_folder = test_set_folder
+
+        results_test_set = model.predict(self.test_set_folder, imgsz=imgsz, show=False, save=True, show_boxes=False, project=self.results_models_directory, save_txt=True,
+                                         name="predictions_test", retina_masks=retina_masks)
+        return results_test_set
+
     def predict_model(self, model_path, folder_input, imgsz=640, check_result=False, conf=0.6, max_det=300, retina_mask=True):
-        model = YOLO(model_path)
-        if check_result==False:
-            results= model.predict(folder_input, imgsz=imgsz, show= False, save=False, show_boxes=False, conf=conf, max_det=max_det, retina_masks=retina_mask)
-        elif check_result==True:
-            results= model.predict(folder_input, imgsz=imgsz, show= False, save=True, show_boxes=False,project=self.working_directory, name="check_results", conf=conf, max_det=max_det, retina_masks=retina_mask)
+        """
+        Predicts segmentation masks using a trained model.
 
-        #results contiene una lista con los contornos de las imagenes, identificación y demas en results[i].path tienes la ruta, y en results[i].masks.xy[e] tienes el array de contorno de la foto i el contorno e
-        
+        Parameters:
+            model_path (str): Path to the trained model file.
+            folder_input (str): Path to the folder containing images to be segmented.
+            imgsz (int): Image size for prediction (default: 640).
+            check_result (bool): Whether to save the results for further inspection (default: False).
+            conf (float): Confidence threshold for predictions (default: 0.6).
+            max_det (int): Maximum number of detections per image (default: 300).
+            retina_mask (bool): Whether to use retina masks for segmentation (default: True).
+
+        Returns:
+            results (list): List of predictions for each image in the input folder. Each entry contains masks and coordinates of segmented objects.
+        """
+        model = YOLO(model_path)
+        if not check_result:
+            results = model.predict(folder_input, imgsz=imgsz, show=False, save=False, show_boxes=False, conf=conf, max_det=max_det, retina_masks=retina_mask)
+        else:
+            results = model.predict(folder_input, imgsz=imgsz, show=False, save=True, show_boxes=False, project=self.working_directory, name="check_results", conf=conf, max_det=max_det, retina_masks=retina_mask)
+
         return results
-    
-    #deprecated
-    def predict_model_sahi(self, model_path, folder_input,confidence_treshold=0.5, model_type='yolov8',
+
+    def predict_model_sahi(self, model_path, folder_input, confidence_treshold=0.5, model_type='yolov8',
                             slice_height=640, slice_width=640, overlap_height_ratio=0.2, overlap_width_ratio=0.2, postprocess_type="NMS", check_result=False
                             , postprocess_match_metric="IOS", postprocess_match_threshold=0.5, retina_masks=True, imgsz=640):
-        
+        """
+        Predicts segmentation masks using the SAHI method (Slice and Heal Inference) for large images.
+
+        Parameters:
+            model_path (str): Path to the trained model file.
+            folder_input (str): Path to the folder containing images to be segmented.
+            confidence_treshold (float): Confidence threshold for predictions (default: 0.5).
+            model_type (str): Type of YOLO model to use (default: "yolov8").
+            slice_height (int): Height of each slice (default: 640).
+            slice_width (int): Width of each slice (default: 640).
+            overlap_height_ratio (float): Overlap ratio in height between slices (default: 0.2).
+            overlap_width_ratio (float): Overlap ratio in width between slices (default: 0.2).
+            postprocess_type (str): Type of postprocessing for results (default: "NMS").
+            check_result (bool): Whether to save the results for inspection (default: False).
+            postprocess_match_metric (str): Metric to use for postprocessing (default: "IOS").
+            postprocess_match_threshold (float): Threshold for postprocessing (default: 0.5).
+            retina_masks (bool): Whether to use retina masks (default: True).
+            imgsz (int): Image size for prediction (default: 640).
+
+        Returns:
+            results_list (list): List of results for each image processed, including segmented masks and additional information.
+        """
         detection_model_seg = AutoDetectionModel.from_pretrained(
-        model_type=model_type,
-        model_path=model_path,
-        confidence_threshold=confidence_treshold,
-        device=self.device,
-        retina_masks=retina_masks,
-        image_size=imgsz)
-        
-        # Lista de extensiones de imágenes comúnmente utilizadas
+            model_type=model_type,
+            model_path=model_path,
+            confidence_threshold=confidence_treshold,
+            device=self.device,
+            retina_masks=retina_masks,
+            image_size=imgsz)
+
         image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
+        image_list = [os.path.join(folder_input, file)
+                      for file in os.listdir(folder_input)
+                      if os.path.splitext(file)[1].lower() in image_extensions]
 
-        # Obtiene las rutas absolutas solo de archivos de imagen
-        image_list = [os.path.join(folder_input, file) 
-                    for file in os.listdir(folder_input) 
-                    if os.path.splitext(file)[1].lower() in image_extensions]
-
-        results_list=[]
-        i=1
+        results_list = []
+        i = 1
         for pic in image_list:
             print(f"Pic {i}/{len(image_list)}")
 
             try:
-                result=get_sliced_prediction(
-                    image=pic , detection_model=detection_model_seg, slice_height=slice_height,
-                slice_width=slice_width, overlap_height_ratio=overlap_height_ratio, overlap_width_ratio=overlap_width_ratio,
-                postprocess_type=postprocess_type, postprocess_match_metric=postprocess_match_metric,
-                postprocess_match_threshold=postprocess_match_threshold, perform_standard_pred=True)
+                result = get_sliced_prediction(
+                    image=pic, detection_model=detection_model_seg, slice_height=slice_height,
+                    slice_width=slice_width, overlap_height_ratio=overlap_height_ratio, overlap_width_ratio=overlap_width_ratio,
+                    postprocess_type=postprocess_type, postprocess_match_metric=postprocess_match_metric,
+                    postprocess_match_threshold=postprocess_match_threshold, perform_standard_pred=True)
             except Exception as e:
                 print(f"Error processing segmentation image {pic}: {e}")
                 continue
-            
+
             torch.cuda.empty_cache()
-            # https://github.com/obss/sahi/blob/main/sahi/predict.py se pueden utilizar varios preprocesados, por si hay que probar
             results_list.append([result, pic])
-            i=i+1
-            if check_result==True:
+            i += 1
+            if check_result:
                 pic_sin_ext = os.path.splitext(os.path.basename(pic))[0]
-                check_result_path=os.path.join(self.working_directory, "check_results")
+                check_result_path = os.path.join(self.working_directory, "check_results")
                 os.makedirs(check_result_path, exist_ok=True)
                 result.export_visuals(export_dir=check_result_path, hide_labels=True, rect_th=1, file_name=f"prediction_result_{pic_sin_ext}")
-            # os.remove(new_file_path_resized)
         return results_list
 
-    
-    #Añadir opcion de guardar las mascaras
-    def slice_predict_reconstruct(self, input_folder, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio, conf=0.5,retina_mask=True):
-                # Lista de extensiones de imágenes comúnmente utilizadas
-        image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
+    def slice_predict_reconstruct(self, input_folder, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio, conf=0.5, retina_mask=True):
+        """
+        Slices large images, performs segmentation predictions on each slice, and reconstructs the full mask.
 
-        # Obtiene las rutas absolutas solo de archivos de imagen
-        image_list = [os.path.join(input_folder, file) 
-                    for file in os.listdir(input_folder) 
-                    if os.path.splitext(file)[1].lower() in image_extensions]
-        mask_list_images=[]
-        n=1
+        Parameters:
+            input_folder (str): Path to the folder containing the images to be sliced and processed.
+            imgsz (int): Image size for prediction (default: 640).
+            model_path (str): Path to the trained model.
+            slice_width (int): Width of each slice.
+            slice_height (int): Height of each slice.
+            overlap_height_ratio (float): Overlap ratio in height between slices.
+            overlap_width_ratio (float): Overlap ratio in width between slices.
+            conf (float): Confidence threshold for predictions (default: 0.5).
+            retina_mask (bool): Whether to use retina masks (default: True).
+
+        Returns:
+            mask_list_images (list): List of reconstructed masks for each image processed.
+        """
+        image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
+        image_list = [os.path.join(input_folder, file)
+                      for file in os.listdir(input_folder)
+                      if os.path.splitext(file)[1].lower() in image_extensions]
+        mask_list_images = []
+        n = 1
         for image_path in image_list:
-            print(f"Image{n}/{len(image_list)}")
+            print(f"Image {n}/{len(image_list)}")
             image_selected = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
             if image_selected.shape[2] == 4:
                 image_selected = cv2.cvtColor(image_selected, cv2.COLOR_RGBA2RGB)
-            
-            image_sliced=slice_image(image=image_selected, slice_width=slice_width,
-                                      slice_height=slice_height,overlap_height_ratio=overlap_height_ratio,
-                                        overlap_width_ratio=overlap_width_ratio, verbose=True)
-            
-            
 
-            slice_count=0
-            mask_complete=np.zeros((image_sliced.original_image_height, image_sliced.original_image_width), dtype=np.uint8)
+            # Slice the image into smaller chunks
+            image_sliced = slice_image(image=image_selected, slice_width=slice_width,
+                                       slice_height=slice_height, overlap_height_ratio=overlap_height_ratio,
+                                       overlap_width_ratio=overlap_width_ratio, verbose=True)
+
+            slice_count = 0
+            mask_complete = np.zeros((image_sliced.original_image_height, image_sliced.original_image_width), dtype=np.uint8)
+
+            # Process each slice
             for slice in image_sliced.images:
-                model = YOLO(model_path, verbose=False)  # load a pretrained model (recommended for training)
+                model = YOLO(model_path, verbose=False)
                 model.to(self.device)
-                results= model.predict(slice, imgsz=imgsz, show= False, save=False, show_boxes=False,
+                results = model.predict(slice, imgsz=imgsz, show=False, save=False, show_boxes=False,
                                         verbose=False, conf=conf, retina_masks=retina_mask)
-                
-                h_slice=slice.shape[0]
-                w_slice=slice.shape[1]
 
+                h_slice = slice.shape[0]
+                w_slice = slice.shape[1]
+
+                # Initialize an empty mask for the current slice
                 mask_combined_slice = np.zeros((h_slice, w_slice), dtype=np.uint8)
+
                 for result in results:
-                    mask_combined_slice = np.zeros((h_slice, w_slice), dtype=np.uint8)
                     if result is None or result.masks is None or result.masks.data is None:
-                        # Si no hay máscaras, crea una máscara negra del tamaño adecuado
-                        continue  # Salta a la siguiente iteración
+                        continue  # Skip to next iteration if no mask is present
+
+                    # For each mask in the result, combine them into the slice's mask
                     for j, mask in enumerate(result.masks.data):
-                        mask = mask.cpu().numpy() * 255
-                        # con cpu mask = mask.numpy() * 255
-                        mask = cv2.resize(mask, (w_slice, h_slice))
-                        mask_combined_slice = cv2.bitwise_or(mask_combined_slice, mask.astype(np.uint8))
+                        mask = mask.cpu().numpy() * 255  # Convert mask to 0-255 scale
+                        mask = cv2.resize(mask, (w_slice, h_slice))  # Resize the mask to the slice size
+                        mask_combined_slice = np.maximum(mask_combined_slice, mask)  # Combine the masks
 
-                mask_added=np.zeros((image_sliced.original_image_height, image_sliced.original_image_width), dtype=np.uint8)
-                start_x=image_sliced.starting_pixels[slice_count][0]
-                start_y=image_sliced.starting_pixels[slice_count][1]
-                mask_added[start_y:start_y + h_slice, start_x:start_x + w_slice] = mask_combined_slice
-                mask_complete = cv2.bitwise_or(mask_complete, mask_added)
-                slice_count=slice_count+1
-            n=n+1
-            
-            mask_list_images.append([mask_complete,image_path])
+                # Place the mask back into the complete image mask at the correct position
+                y_start = slice_count * int(slice_height * (1 - overlap_height_ratio))
+                x_start = slice_count * int(slice_width * (1 - overlap_width_ratio))
+                mask_complete[y_start:y_start + h_slice, x_start:x_start + w_slice] = mask_combined_slice
+
+                slice_count += 1
+
+            # Save or return the full mask for the current image
+            mask_list_images.append(mask_complete)
+            n += 1
+
         return mask_list_images
-    
-            
-            # # Crear una imagen verde (mismo tamaño que la original)
-            # green_color = np.zeros_like(image_selected)
-            # green_color[:] = [0, 255, 0]  # Color verde en formato BGR
-
-            # # Crear una imagen con transparencia (40%)
-            # alpha = 0.05  # Opacidad del 40%
-
-            # # Crear la imagen final combinando la original y la verde
-            # # Asegúrate de aplicar la máscara solo en las áreas que correspondan
-            # # 1. Multiplica la máscara por el color verde
-            # colored_mask = cv2.bitwise_and(green_color, green_color, mask=mask_complete )
-            # # 2. Multiplica la imagen original por (1 - alpha)
-            # #    Esto mantiene la parte de la imagen original en el área de la máscara.
-            # original_weighted = cv2.multiply(image_selected, 1 - alpha)
-
-            # # 3. Combina las dos imágenes
-            # final_image = cv2.add(original_weighted, colored_mask)
-
-            # # Mostrar la imagen final
-            # cv2.imshow('Final Image', final_image)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()

@@ -492,3 +492,68 @@ def calculate_horizontal_symmetry(binary_mask):
     return symmetry
 
  
+
+def smoothing_masks(mask, smoothing_kernel, smoothing_iterations):
+    """
+    Applies morphological operations to smooth the mask by performing erosion followed by dilation.
+
+    Parameters:
+        mask (numpy.ndarray): The binary mask to be smoothed.
+        smoothing_kernel (int): Size of the square kernel used for morphological operations.
+        smoothing_iterations (int): Number of iterations for erosion and dilation.
+
+    Returns:
+        mask (numpy.ndarray): The smoothed binary mask after morphological operations.
+        rect_kernel (numpy.ndarray): The rectangular structuring element used for smoothing.
+    """
+    rect_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (smoothing_kernel, smoothing_kernel))
+    mask = cv2.erode(mask, rect_kernel, iterations=smoothing_iterations)
+    mask = cv2.dilate(mask, rect_kernel, iterations=smoothing_iterations)
+    return mask, rect_kernel
+
+
+def watershed(mask, rect_kernel, iterations, kernel_watershed, threshold_watershed):
+    """
+    Applies the Watershed algorithm to perform image segmentation.
+
+    Parameters:
+        mask (numpy.ndarray): The binary mask representing the segmented image.
+        rect_kernel (numpy.ndarray): The structuring element used for dilation to define sure background.
+        iterations (int): Number of iterations for dilation to determine sure background.
+        kernel_watershed (int): Kernel size for distance transform computation.
+        threshold_watershed (float): Threshold ratio (relative to max value) for foreground determination.
+
+    Returns:
+        mask (numpy.ndarray): The segmented binary mask after applying the Watershed algorithm.
+    """
+    # Determine the sure background
+    sure_bg = cv2.dilate(mask, rect_kernel, iterations=iterations)
+
+    # Obtain sure foreground
+    dist_transform = cv2.distanceTransform(mask, cv2.DIST_L2, kernel_watershed)
+    _, sure_fg = cv2.threshold(dist_transform, threshold_watershed * dist_transform.max(), 255, 0)
+
+    # Find unknown areas (neither background nor foreground)
+    sure_fg = np.uint8(sure_fg)
+    unknown = cv2.subtract(sure_bg, sure_fg)
+
+    # Label connected components
+    _, markers = cv2.connectedComponents(sure_fg)
+
+    # Increase markers to ensure the background is labeled as 1 instead of 0
+    markers = markers + 1
+
+    # Mark unknown areas as 0
+    markers[unknown == 255] = 0
+
+    # Convert grayscale mask to color for Watershed processing
+    img_color = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+    markers = cv2.watershed(img_color, markers)
+
+    # Mark the Watershed boundaries (borders) as 0
+    mask[markers == -1] = 0
+
+    # Convert the segmented result into a binary mask
+    mask = np.uint8(markers > 1) * 255
+
+    return mask
