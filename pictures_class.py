@@ -6,13 +6,33 @@ import imutils
 from imutils import perspective
 from scipy.spatial import distance as dist
 import pandas as pd
-import shutil
 import traceback
 
 
-class pictures():
+class Pictures():
     def __init__(self, working_directory, input_folder,info_file,fruit, project_name,
                  binary_masks=False, blurring_binary_masks=False, blur_binary_masks_value=5, binary_pixel_size=250, threshold_binarization=254):
+        """
+        Initializes the Pictures class.
+
+        This constructor sets up the project structure, including directories 
+        and file paths required for processing images and storing results.
+
+        Parameters:
+            working_directory (str): The main directory where results will be stored.
+            input_folder (str): The folder containing input images.
+            info_file (str): The information file related to the images.
+            fruit (str): The type of fruit analyzed.
+            project_name (str): The name of the project.
+            binary_masks (bool, optional): Enables binary mask generation. Defaults to False.
+            blurring_binary_masks (bool, optional): Enables blurring for binary masks. Defaults to False.
+            blur_binary_masks_value (int, optional): The blur kernel size for binary masks. Defaults to 5.
+            binary_pixel_size (int, optional): The pixel size used for binary processing. Defaults to 250.
+            threshold_binarization (int, optional): The threshold value for binarization after blurring. Defaults to 254.
+
+        Returns:
+            None
+        """
         self.working_directory=working_directory
         self.input_folder=input_folder
         self.info_file=info_file
@@ -41,6 +61,28 @@ class pictures():
     def set_postsegmentation_parameters(self,  segmentation_input, sahi=True, smoothing=False, kernel_smoothing=5,
                                          smoothing_iterations=2, watershed=False, kernel_watershed=5, threshold_watershed=0.7, watershed_iterations=3):
         
+        """
+        Sets the parameters for post-segmentation processing.
+
+        This method configures different post-segmentation techniques such as 
+        smoothing and watershed transformation, depending on whether SAHI (Sliced 
+        Aided Hyper Inference) is enabled.
+
+        Parameters:
+            segmentation_input (str): The input for segmentation processing.
+            sahi (bool, optional): Whether to use SAHI-based segmentation. Defaults to True.
+            smoothing (bool, optional): Enables smoothing for segmentation. Defaults to False.
+            kernel_smoothing (int, optional): Kernel size for smoothing operation. Defaults to 5.
+            smoothing_iterations (int, optional): Number of iterations for smoothing. Defaults to 2.
+            watershed (bool, optional): Enables watershed segmentation. Defaults to False.
+            kernel_watershed (int, optional): Kernel size for watershed processing. Defaults to 5.
+            threshold_watershed (float, optional): Threshold value for watershed segmentation. Defaults to 0.7.
+            watershed_iterations (int, optional): Number of iterations for watershed segmentation. Defaults to 3.
+
+        Returns:
+            None
+        """
+        
         self.sahi=sahi
         self.segmentation_input=segmentation_input
         if self.sahi==True:
@@ -60,6 +102,32 @@ class pictures():
         self.margin=margin
         self.spacing=spacing
         self.limit_area_pixels_min=limit_area_pixels_min
+
+        """
+            Measures almonds and exports results.
+
+            This method sets measurement parameters for almond analysis, including 
+            margin size, spacing, and minimum area threshold for valid detections. 
+            It processes the detected almonds and generates output files.
+
+            Parameters:
+                margin (int, optional): The margin size around the almonds in pixels. Defaults to 100.
+                spacing (int, optional): The spacing between detected almonds in pixels. Defaults to 30.
+                limit_area_pixels_min (int, optional): The minimum area in pixels for an almond to be considered valid. Defaults to 600.
+
+            Outputs:
+                - Saves measurement results in CSV format:
+                    - Morphological data: `results_morphology.txt`
+                    - General statistics: `results_general.txt`
+                    - Binary masks information: `binary_masks_info_table.txt`
+                - Exports images:
+                    - Processed almond images to `pic_results/`
+                    - Binary mask images to `binary_masks/`
+
+            Returns:
+                None
+            """
+        
 
         #region Init table results 
         morphology_table=pd.DataFrame()
@@ -384,7 +452,6 @@ class pictures():
                         ma=(np.mean(a[mask_contour != 0]))-128
                         mb=(np.mean(b[mask_contour != 0]))-128
                         #endregion
-
 
                         #region binary_masks
                         

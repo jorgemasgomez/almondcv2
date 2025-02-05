@@ -492,7 +492,6 @@ def calculate_horizontal_symmetry(binary_mask):
     return symmetry
 
  
-
 def smoothing_masks(mask, smoothing_kernel, smoothing_iterations):
     """
     Applies morphological operations to smooth the mask by performing erosion followed by dilation.
