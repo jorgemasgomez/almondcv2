@@ -177,10 +177,10 @@ class Pictures():
 
                     if self.smoothing==True:
 
-                        mask=smoothing_masks(smoothing_iterations=self.smooting_iterations, smoothing_kernel=self.smoothing_kernel)[0]
+                        mask=smoothing_masks(mask=mask,smoothing_iterations=self.smooting_iterations, smoothing_kernel=self.smoothing_kernel)[0]
 
                     if self.watershed==True:
-                        mask, rect_kernel=smoothing_masks(smoothing_iterations=self.smooting_iterations, smoothing_kernel=self.smoothing_kernel)
+                        mask, rect_kernel=smoothing_masks(mask=mask,smoothing_iterations=self.smooting_iterations, smoothing_kernel=self.smoothing_kernel)
                         mask=watershed(mask=mask, rect_kernel=rect_kernel, iterations=self.watershed_iterations,
                                        kernel_watershed=self.kernel_watershed, threshold_watershed=self.threshold_watershed)
 
@@ -283,11 +283,11 @@ class Pictures():
                             # Current point coordinates
                             x, y = point[0]
                             # Euclidean distance between point and centroid
-                            dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+                            dist_pc = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
                             
                             # Update most distant point
-                            if dist > dist_max:
-                                dist_max = dist
+                            if dist_pc > dist_max:
+                                dist_max = dist_pc
                                 most_distant_point = (x, y)
                         turn=0
                         if most_distant_point[1] < cy:

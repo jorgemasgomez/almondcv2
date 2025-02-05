@@ -1,7 +1,6 @@
 import zipfile
 import os
 import shutil
-import ultralytics
 from ultralytics import YOLO
 import torch
 import cv2
@@ -255,17 +254,18 @@ class ModelSegmentation():
                     for j, mask in enumerate(result.masks.data):
                         mask = mask.cpu().numpy() * 255  # Convert mask to 0-255 scale
                         mask = cv2.resize(mask, (w_slice, h_slice))  # Resize the mask to the slice size
-                        mask_combined_slice = np.maximum(mask_combined_slice, mask)  # Combine the masks
+                        mask_combined_slice = cv2.bitwise_or(mask_combined_slice, mask.astype(np.uint8))  # Combine the masks
 
                 # Place the mask back into the complete image mask at the correct position
-                y_start = slice_count * int(slice_height * (1 - overlap_height_ratio))
-                x_start = slice_count * int(slice_width * (1 - overlap_width_ratio))
-                mask_complete[y_start:y_start + h_slice, x_start:x_start + w_slice] = mask_combined_slice
-
-                slice_count += 1
+                mask_added=np.zeros((image_sliced.original_image_height, image_sliced.original_image_width), dtype=np.uint8)
+                start_x=image_sliced.starting_pixels[slice_count][0]
+                start_y=image_sliced.starting_pixels[slice_count][1]
+                mask_added[start_y:start_y + h_slice, start_x:start_x + w_slice] = mask_combined_slice
+                mask_complete = cv2.bitwise_or(mask_complete, mask_added)
+                slice_count=slice_count+1
 
             # Save or return the full mask for the current image
-            mask_list_images.append(mask_complete)
+            mask_list_images.append([mask_complete,image_path])
             n += 1
 
         return mask_list_images
