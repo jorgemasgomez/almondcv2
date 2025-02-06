@@ -8,6 +8,6 @@ imutils==0.5.4
 scipy==1.14.1
 matplotlib==3.9.2
 Pillow==11.0.0
-torch==2.5.0+cu118
+# torch==2.5.0+cu118 #only for local installation
 scikit-learn==1.5.2
 pyyaml==6.0.2
