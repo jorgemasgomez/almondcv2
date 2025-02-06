@@ -156,9 +156,13 @@ def build_calibration(chessboardSize, frameSize, dir_path, image_format, size_of
             dim = (width, height)
 
             resized_img = cv.resize(img, dim, interpolation=cv.INTER_AREA)  # Resize the image
-            cv.imshow('Resized Image', resized_img)  # Show the resized image
-            cv.waitKey(1000)  # Display the image for 1 second
-            cv.destroyAllWindows()  # Close the image window
+            try:
+                cv.imshow('Resized Image', resized_img)  # Show the resized image
+                cv.waitKey(1000)  # Display the image for 1 second
+                cv.destroyAllWindows()  # Close the image window
+            except:
+                from google.colab.patches import cv2_imshow
+                cv2_imshow(resized_img)
 
     # Perform camera calibration using the collected object points and image points
     ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, frameSize, None, None)
@@ -212,9 +216,14 @@ def calibrate_distortion(mtx_input, output_path, input_folder=None, input_pictur
                 height = int(dst.shape[0] * scale_percent / 100)
                 dim = (width, height)
                 resized_img = cv.resize(dst, dim, interpolation=cv.INTER_AREA)
-                cv.imshow('Resized Image', resized_img)
-                cv.waitKey(1000)  # Show the image for 1 second
-                cv.destroyAllWindows()  # Close the window
+                try:
+                    cv.imshow('Resized Image', resized_img)
+                    cv.waitKey(1000)  # Show the image for 1 second
+                    cv.destroyAllWindows()  # Close the window
+                except:
+                    from google.colab.patches import cv2_imshow
+                    cv2_imshow(resized_img)
+            
 
                 # Save the undistorted image
                 cv.imwrite(os.path.join(output_path, f"CL_{image_input}"), dst)
@@ -237,9 +246,13 @@ def calibrate_distortion(mtx_input, output_path, input_folder=None, input_pictur
         height = int(dst.shape[0] * scale_percent / 100)
         dim = (width, height)
         resized_img = cv.resize(dst, dim, interpolation=cv.INTER_AREA)
-        cv.imshow('Resized Image', resized_img)
-        cv.waitKey(1000)  # Show the image for 1 second
-        cv.destroyAllWindows()  # Close the window
+        try:
+            cv.imshow('Resized Image', resized_img)
+            cv.waitKey(1000)  # Show the image for 1 second
+            cv.destroyAllWindows()  # Close the window
+        except:
+            from google.colab.patches import cv2_imshow
+            cv2_imshow(resized_img)
 
         # Save the undistorted image
         cv.imwrite(os.path.join(output_path, f"CL_{os.path.basename(input_picture[1])}"), dst)
