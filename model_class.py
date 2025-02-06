@@ -36,7 +36,7 @@ class ModelSegmentation():
             print("No GPU detected. Using CPU.")
 
     def train_segmentation_model(self, input_zip, pre_model="yolov8n-seg.pt", epochs=100, imgsz=640, batch=-1, name_segmentation="",
-                                 retina_masks=True, pose=False, keypoints_pose=1):
+                                 retina_masks=True, colab=False):
         """
         Trains the segmentation model using a YOLO segmentation file.
 
@@ -48,8 +48,8 @@ class ModelSegmentation():
             batch (int): Batch size for training (default: -1, auto batch size).
             name_segmentation (str): Name for the segmentation model's output (default: "").
             retina_masks (bool): Whether to use retina masks for segmentation (default: True).
-            pose (bool): Whether to train the model with pose keypoints (default: False).
-            keypoints_pose (int): The number of pose keypoints to use (default: 1).
+            
+            
 
         Returns:
             results_test_set (list): List of results containing the predicted masks for the test set.
@@ -78,15 +78,6 @@ class ModelSegmentation():
             'val': 'images/Validation',
             'test': 'images/Test'
         }
-        if pose:
-            modified_data = {
-                'path': self.output_folder_zip,
-                'train': 'images/Train',
-                'val': 'images/Validation',
-                'test': 'images/Test',
-                "kpt_shape": [keypoints_pose, 3]
-            }
-
         if 'names' in data:
             modified_data['names'] = data['names']
 
@@ -97,15 +88,27 @@ class ModelSegmentation():
         self.results_models_directory = results_models_directory
         os.makedirs(self.results_models_directory, exist_ok=True)
 
-        model = YOLO(pre_model)
-        model.to(self.device)
-        model.train(data=self.yaml_file, epochs=epochs, imgsz=imgsz, batch=batch, project=self.results_models_directory, name="results_training")
+        if colab:
+            model = YOLO(pre_model)
+            model.to(self.device)
+            model.train(data=self.yaml_file, epochs=epochs, imgsz=imgsz, batch=batch, project=name_segmentation, name="results_training")
+            shutil.move(name_segmentation, results_models_directory)
+            
+            test_set_folder = os.path.join(self.output_folder_zip, "images/Test/")
+            self.test_set_folder = test_set_folder
 
-        test_set_folder = os.path.join(self.output_folder_zip, "images/Test/")
-        self.test_set_folder = test_set_folder
+            results_test_set = model.predict(self.test_set_folder, imgsz=imgsz, show=False, save=True, show_boxes=False, project=self.results_models_directory, save_txt=True,
+                                            name="predictions_test", retina_masks=retina_masks)
+        else:
+            model = YOLO(pre_model)
+            model.to(self.device)
+            model.train(data=self.yaml_file, epochs=epochs, imgsz=imgsz, batch=batch, project=self.results_models_directory, name="results_training")
 
-        results_test_set = model.predict(self.test_set_folder, imgsz=imgsz, show=False, save=True, show_boxes=False, project=self.results_models_directory, save_txt=True,
-                                         name="predictions_test", retina_masks=retina_masks)
+            test_set_folder = os.path.join(self.output_folder_zip, "images/Test/")
+            self.test_set_folder = test_set_folder
+
+            results_test_set = model.predict(self.test_set_folder, imgsz=imgsz, show=False, save=True, show_boxes=False, project=self.results_models_directory, save_txt=True,
+                                            name="predictions_test", retina_masks=retina_masks)
         return results_test_set
 
     def predict_model(self, model_path, folder_input, imgsz=640, check_result=False, conf=0.6, max_det=300, retina_mask=True):
