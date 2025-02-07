@@ -475,13 +475,18 @@ class Pictures():
                                 # Draw element contour filled in black
                                 cv2.drawContours(mask_binary, [cnt_rotated], -1, 0, thickness=cv2.FILLED)  # Rellenar con 0 (negro)
                                 
-                                # Prepare ROI using bounding box
-                                ROI = mask_binary[yb:yb+h, xb:xb+w]                   
+                               # Prepare ROI using bounding box
 
-                                scale_factor = self.binary_pixel_size / ROI.shape[0]
-                                new_h = self.binary_pixel_size
-                                new_w = int(ROI.shape[1] * scale_factor)
+                                ROI = mask_binary[yb:yb + h, xb:xb + w]
 
+                                
+                                if ROI.shape[1] > ROI.shape[0]: 
+                                    scale_factor = self.binary_pixel_size / ROI.shape[1]
+                                    new_w, new_h = self.binary_pixel_size, int(ROI.shape[0] * scale_factor)
+                                else:  
+                                    scale_factor = self.binary_pixel_size / ROI.shape[0]
+                                    new_w, new_h = int(ROI.shape[1] * scale_factor), self.binary_pixel_size
+                                    
                                 # Resize using nearest-neighbor interpolation
                                 ROI_resized = cv2.resize(ROI, (new_w, new_h), interpolation=cv2.INTER_NEAREST_EXACT)
 
@@ -864,11 +869,15 @@ class Pictures():
                                 cv2.drawContours(mask_binary, [contour], -1, 0, thickness=cv2.FILLED)  # Rellenar con 0 (negro)
                                 
                                 # Prepare ROI using bounding box
-                                ROI = mask_binary[yb:yb+h, xb:xb+w]                   
+                                ROI = mask_binary[yb:yb + h, xb:xb + w]
 
-                                scale_factor = self.binary_pixel_size / ROI.shape[0]
-                                new_h = self.binary_pixel_size
-                                new_w = int(ROI.shape[1] * scale_factor)
+                                
+                                if ROI.shape[1] > ROI.shape[0]: 
+                                    scale_factor = self.binary_pixel_size / ROI.shape[1]
+                                    new_w, new_h = self.binary_pixel_size, int(ROI.shape[0] * scale_factor)
+                                else:  
+                                    scale_factor = self.binary_pixel_size / ROI.shape[0]
+                                    new_w, new_h = int(ROI.shape[1] * scale_factor), self.binary_pixel_size
 
                                 # Resize using nearest-neighbor interpolation
                                 ROI_resized = cv2.resize(ROI, (new_w, new_h), interpolation=cv2.INTER_NEAREST_EXACT)
