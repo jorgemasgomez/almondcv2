@@ -1,7 +1,7 @@
 import zipfile
 import os
 import shutil
-from ultralytics import YOLO
+from ultralytics import YOLO, settings
 import torch
 import cv2
 import numpy as np
@@ -9,7 +9,7 @@ import yaml
 from sahi.predict import get_sliced_prediction,  AutoDetectionModel
 from sahi.slicing import slice_image
 from PIL import Image
-
+settings.update({"wandb":False})
 
 class ModelSegmentation():
     def __init__(self, working_directory):
