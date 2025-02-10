@@ -1,10 +1,9 @@
 # Open RGB Imaging Workflow for Morphological and Morphometric Analysis
 
-**Mas-Gómez, Jorge; Rubio, Man**Open RGB Imaging Workflow for Morphological and Morphometric Analysis
 
 ## Overview
 
-This repository provides an open-source implementation of the RGB imaging workflow for morphological and morphometric analysis of fru**uela; Dicenta, Federico; Martínez-García, Pedro José.**
+This repository provides an open-source implementation of the RGB imaging workflow for morphological and morphometric analysis of fruits and seeds.
 
 *Open RGB Imaging Workflow for Morphological and Morphometric Analysis of Fruits and Seeds using AI: A Case Study on Almonds.*
 
@@ -45,7 +44,7 @@ pip install -r requirements.txt
 
 If you use this workflow in your research, please cite:
 
-Mas-Gómez, J., Rubio, M., Dicenta, F., & Martínez-García, P. J. *Open RGB Imaging Workflow for Morphological and Morphometric Analysis of Fruits and Seeds using AI: A Case Study on Almonds.*
+Mas-Gómez, J., Rubio, M., Dicenta, F., & Martínez-García, P. J. 2025. *Open RGB Imaging Workflow for Morphological and Morphometric Analysis of Fruits and Seeds using AI: A Case Study on Almonds.*
 
 ## License
 
