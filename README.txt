@@ -1,4 +1,4 @@
-its and seeds using AI. The methodology is based on the research paper:
+# Open RGB Imaging Workflow for Morphological and Morphometric Analysis
 
 **Mas-Gómez, Jorge; Rubio, Man**Open RGB Imaging Workflow for Morphological and Morphometric Analysis
 
