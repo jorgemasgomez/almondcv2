@@ -191,6 +191,7 @@ class Pictures():
 
                 # Obtain pixelmetric values
                 pixelmetric = self.info_file.loc[self.info_file['Sample_picture'] == name_pic, 'Pixelmetric'].values
+                pixelmetric=float(pixelmetric)
                 #endregion
             
                 #region Prepare rectangles size for contours
@@ -585,6 +586,7 @@ class Pictures():
 
             except Exception as e:
                 print(f"Error with picture {name_pic}", e)
+                traceback.print_exc()
                 error_list.append([name_pic, "General", e])
                 
         #endregion loop over picture
@@ -654,7 +656,7 @@ class Pictures():
                                                  "Length","Width","Area", "Perimeter","Hull_area",
                                                  "Solidity","Circularity","Ellipse_Ratio","L","a","b"])
         general_table=pd.DataFrame()
-        general_table = pd.DataFrame(columns=["Name_picture","Sample_number","ID","Weight","Session","Pixelmetric","Sample_picture","N_fruits"])
+        general_table = pd.DataFrame(columns=["Name_picture","Sample_number","ID","Session","Pixelmetric","Sample_picture","N_fruits"])
         #endregion
 
         #region Loop over the pictures 
@@ -696,7 +698,8 @@ class Pictures():
                 
 
                 # Obtain pixelmetric values
-                pixelmetric = self.info_file.loc[self.info_file['Sample_picture'] == name_pic, 'Pixelmetric'].values
+                pixelmetric = self.info_file.loc[self.info_file['Sample_picture'] == name_pic, 'Pixelmetric'].values[0]
+                
                 #endregion
             
                 #region Prepare rectangles size for contours
@@ -907,6 +910,7 @@ class Pictures():
                         #endregion
                     
                     except Exception as e:
+                        
                         print(f"Error with picture {name_pic}", f"Fruit number: {count}", e)
                         error_list.append([name_pic, count, e])
                         traceback.print_exc()
@@ -918,12 +922,13 @@ class Pictures():
                                 
 
                     #Write_results
-                    row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, area[0], perimeter[0],area_hull[0], solidity[0], circularity, ellipse_rat, ml, ma, mb]],
+                    row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, area, perimeter,area_hull, solidity, circularity, ellipse_rat, ml, ma, mb]],
                                     columns=morphology_table.columns)
                     
                     morphology_table = pd.concat([morphology_table, row], ignore_index=True)
-
+                    
                     count=count+1
+                    
                 #endregion end loop over contours
                 
 
@@ -960,6 +965,7 @@ class Pictures():
 
             except Exception as e:
                 print(f"Error with picture {name_pic}", e)
+                traceback.print_exc()
                 error_list.append([name_pic, "General", e])
                 
         #endregion loop over picture
