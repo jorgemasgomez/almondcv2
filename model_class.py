@@ -135,7 +135,7 @@ class ModelSegmentation():
 
         return results
 
-    def predict_model_sahi(self, model_path, folder_input, confidence_treshold=0.5, model_type='yolov8',
+    def predict_model_sahi(self, model_path, folder_input=None, confidence_treshold=0.5, model_type='yolov8',
                             slice_height=640, slice_width=640, overlap_height_ratio=0.2, overlap_width_ratio=0.2, postprocess_type="NMS", check_result=False
                             , postprocess_match_metric="IOS", postprocess_match_threshold=0.5, retina_masks=True, imgsz=640, image_array=None):
         """
@@ -204,7 +204,7 @@ class ModelSegmentation():
                 result.export_visuals(export_dir=check_result_path, hide_labels=True, rect_th=1, file_name=f"prediction_result_{pic_sin_ext}")
         return results_list
 
-    def slice_predict_reconstruct(self, input_folder, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio, conf=0.5, retina_mask=True, image_array=None):
+    def slice_predict_reconstruct(self, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio,  input_folder=None, conf=0.5, retina_mask=True, image_array=None):
         """
         Slices large images, performs segmentation predictions on each slice, and reconstructs the full mask.
 
@@ -236,8 +236,15 @@ class ModelSegmentation():
         mask_list_images = []
         n = 1
         for image_path in image_list:
-            print(f"Image {n}/{len(image_list)}")
-            image_selected = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+
+            if image_array is None:
+                print(f"Image {n}/{len(image_list)}")
+                image_selected = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+            else:
+                image_selected=image_path
+
+
+
             if image_selected.shape[2] == 4:
                 image_selected = cv2.cvtColor(image_selected, cv2.COLOR_RGBA2RGB)
 
