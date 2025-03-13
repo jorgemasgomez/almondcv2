@@ -137,13 +137,14 @@ class ModelSegmentation():
 
     def predict_model_sahi(self, model_path, folder_input, confidence_treshold=0.5, model_type='yolov8',
                             slice_height=640, slice_width=640, overlap_height_ratio=0.2, overlap_width_ratio=0.2, postprocess_type="NMS", check_result=False
-                            , postprocess_match_metric="IOS", postprocess_match_threshold=0.5, retina_masks=True, imgsz=640):
+                            , postprocess_match_metric="IOS", postprocess_match_threshold=0.5, retina_masks=True, imgsz=640, image_array=None):
         """
         Predicts segmentation masks using the SAHI method (Slice and Heal Inference) for large images.
 
         Parameters:
             model_path (str): Path to the trained model file.
             folder_input (str): Path to the folder containing images to be segmented.
+            image_array : Option for a direct picture array
             confidence_treshold (float): Confidence threshold for predictions (default: 0.5).
             model_type (str): Type of YOLO model to use (default: "yolov8").
             slice_height (int): Height of each slice (default: 640).
@@ -167,11 +168,16 @@ class ModelSegmentation():
             device=self.device,
             retina_masks=retina_masks,
             image_size=imgsz)
-
-        image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
-        image_list = [os.path.join(folder_input, file)
-                      for file in os.listdir(folder_input)
-                      if os.path.splitext(file)[1].lower() in image_extensions]
+        
+        if folder_input is not None:
+            image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
+            image_list = [os.path.join(folder_input, file)
+                        for file in os.listdir(folder_input)
+                        if os.path.splitext(file)[1].lower() in image_extensions]
+        elif image_array is not None:
+            image_list = [image_array]
+        else:
+            raise ValueError("Provide a folder or a picture")
 
         results_list = []
         i = 1
@@ -198,12 +204,13 @@ class ModelSegmentation():
                 result.export_visuals(export_dir=check_result_path, hide_labels=True, rect_th=1, file_name=f"prediction_result_{pic_sin_ext}")
         return results_list
 
-    def slice_predict_reconstruct(self, input_folder, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio, conf=0.5, retina_mask=True):
+    def slice_predict_reconstruct(self, input_folder, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio, conf=0.5, retina_mask=True, image_array=None):
         """
         Slices large images, performs segmentation predictions on each slice, and reconstructs the full mask.
 
         Parameters:
             input_folder (str): Path to the folder containing the images to be sliced and processed.
+            image_array : Option for a direct picture array
             imgsz (int): Image size for prediction (default: 640).
             model_path (str): Path to the trained model.
             slice_width (int): Width of each slice.
@@ -216,10 +223,16 @@ class ModelSegmentation():
         Returns:
             mask_list_images (list): List of reconstructed masks for each image processed.
         """
-        image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
-        image_list = [os.path.join(input_folder, file)
-                      for file in os.listdir(input_folder)
-                      if os.path.splitext(file)[1].lower() in image_extensions]
+        if input_folder is not None:
+            image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
+            image_list = [os.path.join(input_folder, file)
+                          for file in os.listdir(input_folder)
+                          if os.path.splitext(file)[1].lower() in image_extensions]
+        elif image_array is not None:
+            image_list = [image_array]
+        else:
+            raise ValueError("Provide a folder or a picture")
+
         mask_list_images = []
         n = 1
         for image_path in image_list:
