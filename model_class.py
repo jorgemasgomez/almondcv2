@@ -11,6 +11,15 @@ from sahi.slicing import slice_image
 from PIL import Image
 settings.update({"wandb":False})
 
+
+import os
+import cv2
+import numpy as np
+from ultralytics import YOLO
+from multiprocessing import Process, Queue
+
+
+
 class ModelSegmentation():
     def __init__(self, working_directory):
         """
@@ -204,30 +213,106 @@ class ModelSegmentation():
                 result.export_visuals(export_dir=check_result_path, hide_labels=True, rect_th=1, file_name=f"prediction_result_{pic_sin_ext}")
         return results_list
 
-    def slice_predict_reconstruct(self, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio,  input_folder=None, conf=0.5, retina_mask=True, image_array=None):
+    # def slice_predict_reconstruct(self, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, overlap_width_ratio,  input_folder=None, conf=0.5, retina_mask=True, image_array=None):
+    #     """
+    #     Slices large images, performs segmentation predictions on each slice, and reconstructs the full mask.
+
+    #     Parameters:
+    #         input_folder (str): Path to the folder containing the images to be sliced and processed.
+    #         image_array : Option for a direct picture array
+    #         imgsz (int): Image size for prediction (default: 640).
+    #         model_path (str): Path to the trained model.
+    #         slice_width (int): Width of each slice.
+    #         slice_height (int): Height of each slice.
+    #         overlap_height_ratio (float): Overlap ratio in height between slices.
+    #         overlap_width_ratio (float): Overlap ratio in width between slices.
+    #         conf (float): Confidence threshold for predictions (default: 0.5).
+    #         retina_mask (bool): Whether to use retina masks (default: True).
+
+    #     Returns:
+    #         mask_list_images (list): List of reconstructed masks for each image processed.
+    #     """
+    #     if input_folder is not None:
+    #         image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
+    #         image_list = [os.path.join(input_folder, file)
+    #                       for file in os.listdir(input_folder)
+    #                       if os.path.splitext(file)[1].lower() in image_extensions]
+    #     elif image_array is not None:
+    #         image_list = [image_array]
+    #     else:
+    #         raise ValueError("Provide a folder or a picture")
+
+    #     mask_list_images = []
+    #     n = 1
+    #     for image_path in image_list:
+
+    #         if image_array is None:
+    #             print(f"Image {n}/{len(image_list)}")
+    #             image_selected = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    #         else:
+    #             image_selected=image_path
+
+
+
+    #         if image_selected.shape[2] == 4:
+    #             image_selected = cv2.cvtColor(image_selected, cv2.COLOR_RGBA2RGB)
+
+    #         # Slice the image into smaller chunks
+    #         image_sliced = slice_image(image=image_selected, slice_width=slice_width,
+    #                                    slice_height=slice_height, overlap_height_ratio=overlap_height_ratio,
+    #                                    overlap_width_ratio=overlap_width_ratio, verbose=True)
+
+    #         slice_count = 0
+    #         mask_complete = np.zeros((image_sliced.original_image_height, image_sliced.original_image_width), dtype=np.uint8)
+
+    #         # Process each slice
+    #         for slice in image_sliced.images:
+    #             model = YOLO(model_path, verbose=False)
+    #             model.to(self.device)
+    #             results = model.predict(slice, imgsz=imgsz, show=False, save=False, show_boxes=False,
+    #                                     verbose=False, conf=conf, retina_masks=retina_mask)
+
+    #             h_slice = slice.shape[0]
+    #             w_slice = slice.shape[1]
+
+    #             # Initialize an empty mask for the current slice
+    #             mask_combined_slice = np.zeros((h_slice, w_slice), dtype=np.uint8)
+
+    #             for result in results:
+    #                 if result is None or result.masks is None or result.masks.data is None:
+    #                     continue  # Skip to next iteration if no mask is present
+
+    #                 # For each mask in the result, combine them into the slice's mask
+    #                 for j, mask in enumerate(result.masks.data):
+    #                     mask = mask.cpu().numpy() * 255  # Convert mask to 0-255 scale
+    #                     mask = cv2.resize(mask, (w_slice, h_slice))  # Resize the mask to the slice size
+    #                     mask_combined_slice = cv2.bitwise_or(mask_combined_slice, mask.astype(np.uint8))  # Combine the masks
+
+    #             # Place the mask back into the complete image mask at the correct position
+    #             mask_added=np.zeros((image_sliced.original_image_height, image_sliced.original_image_width), dtype=np.uint8)
+    #             start_x=image_sliced.starting_pixels[slice_count][0]
+    #             start_y=image_sliced.starting_pixels[slice_count][1]
+    #             mask_added[start_y:start_y + h_slice, start_x:start_x + w_slice] = mask_combined_slice
+    #             mask_complete = cv2.bitwise_or(mask_complete, mask_added)
+    #             slice_count=slice_count+1
+
+    #         # Save or return the full mask for the current image
+    #         mask_list_images.append([mask_complete,image_path])
+    #         n += 1
+
+    #     return mask_list_images
+
+
+    def slice_predict_reconstruct(self, imgsz, model_path, slice_width, slice_height, overlap_height_ratio, 
+                                overlap_width_ratio, input_folder=None, conf=0.5, retina_mask=True, image_array=None):
         """
-        Slices large images, performs segmentation predictions on each slice, and reconstructs the full mask.
-
-        Parameters:
-            input_folder (str): Path to the folder containing the images to be sliced and processed.
-            image_array : Option for a direct picture array
-            imgsz (int): Image size for prediction (default: 640).
-            model_path (str): Path to the trained model.
-            slice_width (int): Width of each slice.
-            slice_height (int): Height of each slice.
-            overlap_height_ratio (float): Overlap ratio in height between slices.
-            overlap_width_ratio (float): Overlap ratio in width between slices.
-            conf (float): Confidence threshold for predictions (default: 0.5).
-            retina_mask (bool): Whether to use retina masks (default: True).
-
-        Returns:
-            mask_list_images (list): List of reconstructed masks for each image processed.
+        Slices images, runs segmentation on all slices in batch (GPU), and reconstructs the full mask.
         """
         if input_folder is not None:
             image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']
             image_list = [os.path.join(input_folder, file)
-                          for file in os.listdir(input_folder)
-                          if os.path.splitext(file)[1].lower() in image_extensions]
+                        for file in os.listdir(input_folder)
+                        if os.path.splitext(file)[1].lower() in image_extensions]
         elif image_array is not None:
             image_list = [image_array]
         else:
@@ -235,60 +320,49 @@ class ModelSegmentation():
 
         mask_list_images = []
         n = 1
-        for image_path in image_list:
 
+        # Cargar modelo una sola vez
+        model = YOLO(model_path, verbose=False).to(self.device)
+
+        for image_path in image_list:
             if image_array is None:
-                print(f"Image {n}/{len(image_list)}")
+                print(f"Processing Image {n}/{len(image_list)}")
                 image_selected = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
             else:
-                image_selected=image_path
-
-
+                image_selected = image_path
 
             if image_selected.shape[2] == 4:
                 image_selected = cv2.cvtColor(image_selected, cv2.COLOR_RGBA2RGB)
 
-            # Slice the image into smaller chunks
+            # Slice the image into chunks
             image_sliced = slice_image(image=image_selected, slice_width=slice_width,
-                                       slice_height=slice_height, overlap_height_ratio=overlap_height_ratio,
-                                       overlap_width_ratio=overlap_width_ratio, verbose=True)
-
-            slice_count = 0
+                                    slice_height=slice_height, overlap_height_ratio=overlap_height_ratio,
+                                    overlap_width_ratio=overlap_width_ratio, verbose=True)
             mask_complete = np.zeros((image_sliced.original_image_height, image_sliced.original_image_width), dtype=np.uint8)
+            # Si image_sliced.images es una lista de arrays de NumPy
+            slices_batch = image_sliced.images  # Ya están en formato NumPy
 
-            # Process each slice
-            for slice in image_sliced.images:
-                model = YOLO(model_path, verbose=False)
-                model.to(self.device)
-                results = model.predict(slice, imgsz=imgsz, show=False, save=False, show_boxes=False,
-                                        verbose=False, conf=conf, retina_masks=retina_mask)
+            # Aseguramos que se pase sin conversión a tensores
+            with torch.no_grad():  # Evita cálculos innecesarios de gradientes
+                results = model.predict(slices_batch, imgsz=imgsz, conf=conf, retina_masks=retina_mask, verbose=False)
 
-                h_slice = slice.shape[0]
-                w_slice = slice.shape[1]
+            for i, result in enumerate(results):
+                h_slice, w_slice = image_sliced.images[i].shape[:2]
+                start_x, start_y = image_sliced.starting_pixels[i]
 
-                # Initialize an empty mask for the current slice
                 mask_combined_slice = np.zeros((h_slice, w_slice), dtype=np.uint8)
 
-                for result in results:
-                    if result is None or result.masks is None or result.masks.data is None:
-                        continue  # Skip to next iteration if no mask is present
+                if result.masks and result.masks.data is not None:
+                    for mask in result.masks.data:
+                        mask = mask.cpu().numpy() * 255
+                        mask = cv2.resize(mask, (w_slice, h_slice))
+                        mask_combined_slice = cv2.bitwise_or(mask_combined_slice, mask.astype(np.uint8))
 
-                    # For each mask in the result, combine them into the slice's mask
-                    for j, mask in enumerate(result.masks.data):
-                        mask = mask.cpu().numpy() * 255  # Convert mask to 0-255 scale
-                        mask = cv2.resize(mask, (w_slice, h_slice))  # Resize the mask to the slice size
-                        mask_combined_slice = cv2.bitwise_or(mask_combined_slice, mask.astype(np.uint8))  # Combine the masks
-
-                # Place the mask back into the complete image mask at the correct position
-                mask_added=np.zeros((image_sliced.original_image_height, image_sliced.original_image_width), dtype=np.uint8)
-                start_x=image_sliced.starting_pixels[slice_count][0]
-                start_y=image_sliced.starting_pixels[slice_count][1]
+                mask_added = np.zeros_like(mask_complete)
                 mask_added[start_y:start_y + h_slice, start_x:start_x + w_slice] = mask_combined_slice
                 mask_complete = cv2.bitwise_or(mask_complete, mask_added)
-                slice_count=slice_count+1
 
-            # Save or return the full mask for the current image
-            mask_list_images.append([mask_complete,image_path])
+            mask_list_images.append([mask_complete, image_path])
             n += 1
 
         return mask_list_images
