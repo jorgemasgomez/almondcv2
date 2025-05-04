@@ -48,7 +48,7 @@ pip install -r requirements.txt
 Mas-Gómez, J., Rubio, M., Dicenta, F., & Martínez-García, P. J. 2025. *Open RGB Imaging Workflow for Morphological and Morphometric Analysis of Fruits using AI: A Case Study on Almonds.*
 
 <p align="center">
-  <img src="images/rs_CL_10_11_F-003_2.png" alt="Almond" width="200"/>
+  <img src="images/rs_CL_10_11_F-003_2.png" alt="Almond" width="2000"/>
 </p>
 
 ### Strawberry processed by the workflow
@@ -57,11 +57,11 @@ Mitchell J Feldmann, Michael A Hardigan, Randi A Famula, Cindy M López, Amy Tab
 
 
 <p align="center">
-  <img src="images/rs_1001_01C206P005.JPG" alt="Strawberry" width="200"/>
+  <img src="images/rs_1001_01C206P005.JPG" alt="Strawberry" width="2000"/>
 </p>
 
 <p align="center">
-  <img src="images/1001_01C206P005.JPG_2.jpg" alt="Strawberry" width="200"/>
+  <img src="images/1001_01C206P005.JPG_2.jpg" alt="Strawberry" width="2000"/>
 </p>
 
 ### Apple processed by the workflow
