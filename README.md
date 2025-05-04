@@ -61,7 +61,7 @@ Mitchell J Feldmann, Michael A Hardigan, Randi A Famula, Cindy M López, Amy Tab
 </p>
 
 <p align="center">
-  <img src="images/1001_01C206P005.JPG_2.jpg" alt="Strawberry" width="2000"/>
+  <img src="images/1001_01C206P005.JPG_2.jpg" alt="Strawberry" width="200"/>
 </p>
 
 ### Apple processed by the workflow
@@ -69,11 +69,11 @@ Mitchell J Feldmann, Michael A Hardigan, Randi A Famula, Cindy M López, Amy Tab
 Beat Keller, Michaela Jung, Simone Bühlmann-Schütz, Marius Hodel, Bruno Studer, Giovanni A L Broggini, Andrea Patocchi, The genetic basis of apple shape and size unraveled by digital phenotyping, G3 Genes|Genomes|Genetics, Volume 14, Issue 5, May 2024, jkae045, https://doi.org/10.1093/g3journal/jkae045
 
 <p align="center">
-  <img src="images/rs_0110641703_cam5_001_20201015_1156_06.jpg" alt="Strawberry" width="200"/>
+  <img src="images/rs_0110641703_cam5_001_20201015_1156_06.jpg" alt="Strawberry" width="2000"/>
 </p>
 
 <p align="center">
-  <img src="images/rs_0110641805_cam4_001_20200903_1414_08.jpg" alt="Strawberry" width="200"/>
+  <img src="images/rs_0110641805_cam4_001_20200903_1414_08.jpg" alt="Strawberry" width="2000"/>
 </p>
 
 
