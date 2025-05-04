@@ -204,7 +204,7 @@ class Pictures():
                 spacing_x = max_width + spacing  
                 spacing_y = max_height + spacing
                 
-                num_rows = int((height_pic - 2 * self.margin) / spacing_y)
+                num_rows = max(1, int((height_pic - 2 * self.margin) / spacing_y))
                 num_columns = int((len(self.mask_contours_list) + num_rows - 1) // num_rows)
                 width = num_columns * spacing_x + 2 * margin
                 
@@ -695,7 +695,6 @@ class Pictures():
                         self.mask_contours_list, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                         fruits=cv2.imread(picture[1])
                         
-                
 
                 # Obtain pixelmetric values
                 pixelmetric = self.info_file.loc[self.info_file['Sample_picture'] == name_pic, 'Pixelmetric'].values[0]
@@ -712,7 +711,7 @@ class Pictures():
                 spacing_x = max_width + spacing  
                 spacing_y = max_height + spacing
                 
-                num_rows = int((height_pic - 2 * self.margin) / spacing_y)
+                num_rows = max(1, int((height_pic - 2 * self.margin) / spacing_y))
                 num_columns = int((len(self.mask_contours_list) + num_rows - 1) // num_rows)
                 width = num_columns * spacing_x + 2 * margin
                 
