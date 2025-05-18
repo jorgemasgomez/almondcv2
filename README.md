@@ -87,6 +87,5 @@ Mas-Gómez, J., Rubio, M., Dicenta, F., & Martínez-García, P. J. 2025. *Open R
 
 ## License
 
-This project is licensed under the MIT License.
-
+This project is licensed under the GNU GPL v3
 
