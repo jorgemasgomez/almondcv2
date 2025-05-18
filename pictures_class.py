@@ -544,7 +544,9 @@ class Pictures():
                                 
 
                     #Write_results
-                    row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, width_25[0], width_50[0], width_75[0],area[0], perimeter[0],area_hull[0], solidity[0], circularity, ellipse_rat, ml, ma, mb, symmetry_h, symmetry_v, shoulder]],
+                    # row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, width_25[0], width_50[0], width_75[0],area[0], perimeter[0],area_hull[0], solidity[0], circularity, ellipse_rat, ml, ma, mb, symmetry_h, symmetry_v, shoulder]],
+                    #                 columns=morphology_table.columns)
+                    row =pd.DataFrame([[self.project_name,name_pic, self.fruit, count,dimA, dimB, width_25, width_50, width_75,area, perimeter,area_hull, solidity, circularity, ellipse_rat, ml, ma, mb, symmetry_h, symmetry_v, shoulder]],
                                     columns=morphology_table.columns)
                     
                     morphology_table = pd.concat([morphology_table, row], ignore_index=True)
