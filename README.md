@@ -39,6 +39,8 @@ pip install -r requirements.txt
 ```sh
 pip install -r requirements.txt
 ```
+### Videotutorial
+[![Watch the video on YouTube](https://img.youtube.com/vi/q25-JI2W2G4/maxresdefault.jpg)](https://www.youtube.com/watch?v=q25-JI2W2G4)
 
 
 ## Example Images
