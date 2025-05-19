@@ -85,7 +85,7 @@ Beat Keller, Michaela Jung, Simone Bühlmann-Schütz, Marius Hodel, Bruno Studer
 
 If you use this workflow in your research, please cite:
 
-Mas-Gómez, J., Rubio, M., Dicenta, F., & Martínez-García, P. J. 2025. *Open RGB Imaging Workflow for Morphological and Morphometric Analysis of Fruits using AI: A Case Study on Almonds.*
+Open RGB Imaging Workflow for Morphological and Morphometric Analysis of Fruits using AI: A Case Study on Almonds Mas-Gómez Jorge, Rubio Manuel, Dicenta Federico, Martínez-García Pedro José bioRxiv 2025.05.05.652179; doi: https://doi.org/10.1101/2025.05.05.652179 
 
 ## License
 
