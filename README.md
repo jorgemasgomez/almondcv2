@@ -92,18 +92,18 @@ Mas-Gómez, J., Rubio, M., Dicenta, F., & Martínez-García, P. J. 2025. *Open R
 This project is licensed under the GNU GPL v3
 
 
-### CVAT INSTALL ###
+## CVAT INSTALL 
 https://www.cvat.ai/
 https://docs.cvat.ai/docs/administration/basics/installation/
 https://www.cvat.ai/resources/blog/facebook-segment-anything-model-in-cvat
 https://docs.cvat.ai/docs/administration/advanced/installation_automatic_annotation/
 https://www.youtube.com/watch?v=xopaChA1xn0
 
-### YOLO ###
+## YOLO 
 
 https://docs.ultralytics.com/es/tasks/segment/
 https://docs.ultralytics.com/es/modes/train/#train-settings
 https://docs.ultralytics.com/es/tasks/segment/#models
 
-### ZENODO REPOSITORY ALMOND ###
+## ZENODO REPOSITORY ALMOND 
 https://zenodo.org/records/15423563
