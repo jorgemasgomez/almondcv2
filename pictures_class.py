@@ -58,7 +58,7 @@ class Pictures():
         os.makedirs(self.path_export_3, exist_ok=True)
         os.makedirs(self.path_export_4, exist_ok=True)
 
-    def set_postsegmentation_parameters(self,  segmentation_input, sahi=True, smoothing=False, kernel_smoothing=5,
+    def set_postsegmentation_parameters(self,  segmentation_input, two_step=True, sahi=False, smoothing=False, kernel_smoothing=5,
                                          smoothing_iterations=2, watershed=False, kernel_watershed=5, threshold_watershed=0.7, watershed_iterations=3):
         
         """
@@ -70,7 +70,7 @@ class Pictures():
 
         Parameters:
             segmentation_input (str): The input for segmentation processing.
-            sahi (bool, optional): Whether to use SAHI-based segmentation. Defaults to True.
+            sahi (bool, optional): Whether to use SAHI-based segmentation. Defaults to False.
             smoothing (bool, optional): Enables smoothing for segmentation. Defaults to False.
             kernel_smoothing (int, optional): Kernel size for smoothing operation. Defaults to 5.
             smoothing_iterations (int, optional): Number of iterations for smoothing. Defaults to 2.
@@ -78,14 +78,18 @@ class Pictures():
             kernel_watershed (int, optional): Kernel size for watershed processing. Defaults to 5.
             threshold_watershed (float, optional): Threshold value for watershed segmentation. Defaults to 0.7.
             watershed_iterations (int, optional): Number of iterations for watershed segmentation. Defaults to 3.
+            Two Step (bool, optional): Whether to use two step YOLO + SAM + REFINER -based segmentation. Defaults to True.
 
         Returns:
             None
         """
         
         self.sahi=sahi
+        self.two_step=two_step
         self.segmentation_input=segmentation_input
         if self.sahi==True:
+            pass
+        elif self.two_step==True:
             pass
         else:
             self.smoothing=smoothing
@@ -97,7 +101,7 @@ class Pictures():
             self.watershed_iterations=watershed_iterations
 
     
-    def measure_almonds(self, margin=100, spacing=30, limit_area_pixels_min=600, line_thickness=1, text_size=0.75, text_thickness=2,
+    def measure_almonds(self, margin=0.1, spacing=30, limit_area_pixels_min=300, line_thickness=1, text_size=0.75, text_thickness=2,
                          text_color=(255,255,255), line_color=(0,255,0)):
 
         self.margin=margin
@@ -108,6 +112,7 @@ class Pictures():
         self.text_thickness=text_thickness
         self.text_color=text_color
         self.line_color=line_color
+        
 
         """
         Measures almonds and exports results.
@@ -118,7 +123,7 @@ class Pictures():
         CSV reports and images with annotations.
 
         Parameters:
-            margin (int, optional): The margin size around the almonds in pixels. Defaults to 100.
+            margin (float, optional): The margin percentage in comparison to the pic size around. Defaults to 0.1
             spacing (int, optional): The spacing between detected almonds in pixels. Defaults to 30.
             limit_area_pixels_min (int, optional): The minimum area in pixels for an almond to be considered valid. Defaults to 600.
             line_thickness (int, optional): Thickness of the annotation lines in output images. Defaults to 1.
@@ -169,6 +174,11 @@ class Pictures():
                         contour = contour_pixels.reshape((-1, 1, 2))
                         sahi_contours_list.append(contour)
                     self.mask_contours_list=sahi_contours_list
+                elif self.two_step==True:
+                    name_pic=os.path.basename(picture[0])
+                    print(name_pic)
+                    almonds=cv2.imread(picture[0])
+                    self.mask_contours_list = [item["contour"] for item in picture[1] if item["contour"] is not None]
                     
                 else:
                     # For slice_predict_reconstruct approach simply define variables and find_contours
@@ -195,32 +205,42 @@ class Pictures():
                 #endregion
             
                 #region Prepare rectangles size for contours
-
                 height_pic, width_pic = almonds.shape[:2]
+
                 max_height = max(cv2.boundingRect(cnt)[3] for cnt in self.mask_contours_list)
                 max_width = max(cv2.boundingRect(cnt)[2] for cnt in self.mask_contours_list)
 
+                # Convert margin percentage to pixels
+                margin_px = int(height_pic * self.margin)
+
                 # Define spacing
-                spacing_x = max_width + spacing  
+                spacing_x = max_width + spacing
                 spacing_y = max_height + spacing
-                
-                num_rows = max(1, int((height_pic - 2 * self.margin) / spacing_y))
-                num_columns = int((len(self.mask_contours_list) + num_rows - 1) // num_rows)
-                width = num_columns * spacing_x + 2 * margin
-                
+
+                num_rows = max(1, int((height_pic - 2 * margin_px) / spacing_y))
+
+                num_columns = int(
+                    (len(self.mask_contours_list) + num_rows - 1) // num_rows
+                )
+
+                width = num_columns * spacing_x + 2 * margin_px
+
                 # Centres of the rectangles
-                x_coords = [margin + i * spacing_x for i in range(num_columns)]
-                y_coords = [margin + i * spacing_y for i in range(num_rows)]
+                x_coords = [margin_px + i * spacing_x for i in range(num_columns)]
+                y_coords = [margin_px + i * spacing_y for i in range(num_rows)]
+
                 centers = [(x, y) for y in y_coords for x in x_coords]
 
                 #endregion
 
                 #region Prepare images bases for output pictures
-                image_base= np.zeros((height_pic, width, 3), dtype=np.uint8)
+
+                image_base = np.zeros((height_pic, width, 3), dtype=np.uint8)
+
                 measure_pic = image_base.copy()
-                elipse_pic=image_base.copy()
-                circ_pic=image_base.copy()
-                widths_pic=image_base.copy()
+                elipse_pic = image_base.copy()
+                circ_pic = image_base.copy()
+                widths_pic = image_base.copy()
                 #endregion
  
 
@@ -320,6 +340,7 @@ class Pictures():
                         mask_transformed = np.zeros(image_transformed.shape[:2], dtype=np.uint8)
                         # Draw element in the mask
                         mask_transformed=cv2.drawContours(mask_transformed, [cnt_rotated], -1, 255, thickness=cv2.FILLED)
+                        
 
                         filled_almond = cv2.bitwise_and(image_transformed, image_transformed , mask=mask_transformed)
                         filled_almond = filled_almond[:, :image_base.shape[1], :]
@@ -558,6 +579,7 @@ class Pictures():
                 #region Exporting picture results 
 
                 row_general = self.info_file.loc[self.info_file['Sample_picture'] == name_pic]
+
                 row_general=row_general.values.flatten().tolist()
                 row_general.append(count-1)
 
@@ -568,7 +590,8 @@ class Pictures():
                 #Draw the contours for green masking
                 almonds_mask= np.zeros((height_pic, width_pic), dtype=np.uint8)
                 cv2.drawContours(almonds_mask, all_almond_contours, -1, 255, thickness=cv2.FILLED)
-                
+                cv2.imwrite(f"{self.path_export_3}/bin_mask_{name_pic}", almonds_mask)
+
 
 
                 #Put a transparent  green mask over the elements
@@ -581,6 +604,29 @@ class Pictures():
                 original_weighted = cv2.multiply(almonds, 1 - alpha)
 
                 almonds_masked= cv2.add(original_weighted, colored_mask)
+                number=1
+                for contour in all_almond_contours:
+                    M = cv2.moments(contour)
+                    
+                    if M["m00"] != 0:  
+                        cX = int(M["m10"] / M["m00"])
+                        cY = int(M["m01"] / M["m00"])
+                    else:
+                        
+                        cX, cY = 0, 0
+
+                    
+                    cv2.putText(
+                        almonds_masked,
+                        f"N: {number}",
+                        (cX, cY),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        self.text_size,     
+                        self.text_color,     
+                        self.text_thickness  
+                    )
+
+                    number += 1
 
                 output_pic=np.concatenate((almonds_masked, measure_pic, widths_pic, circ_pic, elipse_pic), axis=1)
                 cv2.imwrite(f"{self.path_export_3}/rs_{name_pic}", output_pic)
@@ -592,7 +638,9 @@ class Pictures():
                 error_list.append([name_pic, "General", e])
                 
         #endregion loop over picture
-        #region Export session results    
+        #region Export session results
+        morphology_table['Sample_picture'] = morphology_table['Sample_picture'].astype(str)
+        general_table['Sample_picture'] = general_table['Sample_picture'].astype(str)    
         morphology_table = pd.merge(morphology_table, general_table[['Sample_picture', 'ID']], left_on='Sample_picture', right_on='Sample_picture', how='left')
         if self.binary_masks is True:
             binary_table = morphology_table[['Sample_picture', 'ID', 'Fruit_number']]
@@ -946,6 +994,7 @@ class Pictures():
                 #Draw the contours for green masking
                 fruits_mask= np.zeros((height_pic, width_pic), dtype=np.uint8)
                 cv2.drawContours(fruits_mask, all_fruit_contours, -1, 255, thickness=cv2.FILLED)
+                
                 
 
 

@@ -7,6 +7,13 @@ import os
 import random
 import shutil
 import pandas as pd
+import os
+import random
+import shutil
+import math
+import cv2
+from model_class import draw_image_with_masks
+
 
 def slicing(input_folder, output_directory, name_slicing, number_pictures, train_percent=60, val_percent=20, 
             slice_width=640, slice_height=640, overlap_height_ratio=0.2, overlap_width_ratio=0.2, crop="NA", crop_level=2):
@@ -100,8 +107,143 @@ def slicing(input_folder, output_directory, name_slicing, number_pictures, train
     return list_slices
 
 
+
+def split_and_save(image_path, output_folder, base_name, max_size=2500):
+    image = cv2.imread(image_path)
+    h, w = image.shape[:2]
+
+    # número de tiles
+    n_tiles_x = math.ceil(w / max_size)
+    n_tiles_y = math.ceil(h / max_size)
+
+    # tamaño de cada tile
+    tile_w = math.ceil(w / n_tiles_x)
+    tile_h = math.ceil(h / n_tiles_y)
+
+    count = 0
+
+    for i in range(n_tiles_y):
+        for j in range(n_tiles_x):
+            x_start = j * tile_w
+            y_start = i * tile_h
+
+            x_end = min(x_start + tile_w, w)
+            y_end = min(y_start + tile_h, h)
+
+            tile = image[y_start:y_end, x_start:x_end]
+
+            tile_name = f"{base_name}_tile_{count}.jpg"
+            tile_path = os.path.join(output_folder, tile_name)
+
+            cv2.imwrite(tile_path, tile)
+            count += 1
+
+def organizing_dataset(input_folder, output_directory, name_dataset, number_pictures,
+                       train_percent=60, val_percent=20, max_size=2500):
+    """
+    Create a randomized train/validation/test dataset split from an input image folder.
+
+    Images larger than `max_size` in either height or width are split using
+    `split_and_save()`. Smaller images are copied directly to the corresponding
+    output subset folder.
+
+    Parameters
+    ----------
+    input_folder : str
+        Folder containing the original images.
+
+    output_directory : str
+        Directory where the dataset folder will be created.
+
+    name_dataset : str
+        Name of the output dataset folder.
+
+    number_pictures : int
+        Number of images to randomly select from the input folder.
+
+    train_percent : int or float, optional
+        Percentage of images assigned to the training set, by default 60.
+
+    val_percent : int or float, optional
+        Percentage of images assigned to the validation set, by default 20.
+
+    max_size : int, optional
+        Maximum allowed image height or width before splitting, by default 2500.
+
+    Returns
+    -------
+    dict or None
+        Dictionary containing the image names assigned to each subset:
+        `"train"`, `"val"`, and `"test"`.
+        Returns None if there are not enough images in the input folder.
+    """
+
+    image_list = os.listdir(input_folder)
+    image_extensions = [".jpg", ".jpeg", ".png"]
+
+    image_list = [
+        file for file in image_list
+        if file.lower().endswith(tuple(image_extensions))
+    ]
+
+    if len(image_list) < number_pictures:
+        print("The folder does not contain enough images.")
+        return
+
+    random_pictures = random.sample(image_list, number_pictures)
+
+    # Define output directories.
+    output_folder = os.path.join(output_directory, name_dataset)
+    train_folder = os.path.join(output_folder, "train")
+    val_folder = os.path.join(output_folder, "val")
+    test_folder = os.path.join(output_folder, "test")
+
+    # Remove any previous dataset with the same name.
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+
+    os.makedirs(train_folder, exist_ok=True)
+    os.makedirs(val_folder, exist_ok=True)
+    os.makedirs(test_folder, exist_ok=True)
+
+    # Compute the number of images assigned to each dataset split.
+    num_train = int(train_percent / 100 * number_pictures)
+    num_val = int(val_percent / 100 * number_pictures)
+
+    train_images = random_pictures[:num_train]
+    val_images = random_pictures[num_train:num_train + num_val]
+    test_images = random_pictures[num_train + num_val:]
+
+    # Process selected images.
+    for image_input in random_pictures:
+        input_path = os.path.join(input_folder, image_input)
+        base_name = os.path.splitext(image_input)[0]
+
+        if image_input in train_images:
+            output_subfolder = train_folder
+        elif image_input in val_images:
+            output_subfolder = val_folder
+        else:
+            output_subfolder = test_folder
+
+        image = cv2.imread(input_path)
+        h, w = image.shape[:2]
+
+        # Split large images; otherwise, copy the image directly.
+        if h > max_size or w > max_size:
+            split_and_save(input_path, output_subfolder, base_name, max_size)
+        else:
+            output_path = os.path.join(output_subfolder, image_input)
+            shutil.copy2(input_path, output_path)
+
+    return {
+        "train": train_images,
+        "val": val_images,
+        "test": test_images
+    }
+
 def obtain_pixel_metric(info_data, contours, output_directory, reference=24.25, smoothing=False,
-                        smoothing_kernel=3, smoothing_iterations=1):
+                        smoothing_kernel=3, smoothing_iterations=1, save_mask_overlay=False, two_steps=True):
     """
     Calculates the pixel-to-metric conversion for given image contours.
 
@@ -113,62 +255,119 @@ def obtain_pixel_metric(info_data, contours, output_directory, reference=24.25, 
     - smoothing: Boolean, applies morphological operations to smooth the contour (default: False).
     - smoothing_kernel: Kernel size for morphological operations (default: 3).
     - smoothing_iterations: Number of times to apply smoothing operations (default: 1).
+    - save_mask_overlay: Boolean, saves images with mask overlay (default: False).
 
     Returns:
     - A DataFrame with pixel-to-metric conversion values merged with the original info_data.
     """
     
+    os.makedirs(output_directory, exist_ok=True)
+    
+    # Carpeta específica para las máscaras superpuestas
+    if save_mask_overlay:
+        overlay_dir = os.path.join(output_directory, "Masks_Overlay")
+        os.makedirs(overlay_dir, exist_ok=True)
+
     pixel_metric_list = []
 
-    for contour in contours:
-        name_pic = os.path.basename(contour[1])  # Extract the image filename
-        mask = contour[0]
+    if two_steps:
+        for contours_pic in contours:
+            image_path=contours_pic[0]
+            image = cv2.imread(image_path)
+            overlay=draw_image_with_masks(image=image, image_masks=contours_pic[1])
 
-        # Apply morphological operations if smoothing is enabled
-        if smoothing:
-            rect_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (smoothing_kernel, smoothing_kernel))
-            mask = cv2.erode(mask, rect_kernel, iterations=smoothing_iterations)
-            mask = cv2.dilate(mask, rect_kernel, iterations=smoothing_iterations)      
-
-        # Find contours from the mask
-        mask_contours_list, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        # Initialize variables to store the largest contour
-        i = 0
-        for contour_opencv in mask_contours_list:
+            name_pic = os.path.basename(contours_pic[0])  # Extract the image filename
+            mask_contours_list = [item["contour"] for item in contours_pic[1] if item["contour"] is not None]
             if len(mask_contours_list) > 1:
-                area = cv2.contourArea(contour_opencv)
-                if i == 0:
-                    max_contour_area = contour_opencv
-                    max_area = area
-                elif area > max_area:
-                    max_contour_area = contour_opencv
-                i += 1
+                max_contour_area = max(mask_contours_list, key=cv2.contourArea)
+            elif len(mask_contours_list) == 1:
+                max_contour_area = mask_contours_list[0]
             else:
-                max_contour_area = contour_opencv
-        
-        # Compute the minimum area bounding box
-        box = cv2.minAreaRect(max_contour_area)
-        box = cv2.boxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
-        box = np.array(box, dtype="int")
+                print(f"ERROR IN {image_path}")
+                continue
 
-        # Compute the perimeter of the bounding box and derive the average diameter
-        perimeter_reference = cv2.arcLength(box, True)
-        average_diameter = perimeter_reference / 4  # Approximate diameter from the perimeter
+            # Minimum area bounding box
+            box = cv2.minAreaRect(max_contour_area)
+            box = cv2.boxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
+            box = np.array(box, dtype="int")
 
-        # Calculate the pixels-to-metric conversion factor
-        pixelsPerMetric = average_diameter / reference
-        pixel_metric_list.append([name_pic, pixelsPerMetric])
+            # Perímetro y diámetro aproximado
+            perimeter_reference = cv2.arcLength(box, True)
+            average_diameter = perimeter_reference / 4
 
-    # Create a DataFrame from the calculated metrics
+            # Factor pixels-to-metric
+            pixelsPerMetric = average_diameter / reference
+            pixel_metric_list.append([name_pic, pixelsPerMetric])
+
+            # Guardar imagen con máscara overlay si se solicita
+            if save_mask_overlay:
+                # Guardar en carpeta específica
+                output_path = os.path.join(overlay_dir, f"overlay_{name_pic}")
+                cv2.imwrite(output_path, overlay)
+
+    else:
+        for mask, image_path in contours:
+            name_pic = os.path.basename(image_path)  # Extract the image filename
+
+
+
+            # Apply morphological operations if smoothing is enabled
+            if smoothing:
+                rect_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (smoothing_kernel, smoothing_kernel))
+                mask = cv2.erode(mask, rect_kernel, iterations=smoothing_iterations)
+                mask = cv2.dilate(mask, rect_kernel, iterations=smoothing_iterations)
+
+            # Find contours from the mask
+            mask_contours_list, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            # Obtener el contorno más grande
+            if len(mask_contours_list) > 1:
+                max_contour_area = max(mask_contours_list, key=cv2.contourArea)
+            elif len(mask_contours_list) == 1:
+                max_contour_area = mask_contours_list[0]
+            else:
+                print(f"ERROR IN {image_path}")
+                continue
+
+            # Minimum area bounding box
+            box = cv2.minAreaRect(max_contour_area)
+            box = cv2.boxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
+            box = np.array(box, dtype="int")
+
+            # Perímetro y diámetro aproximado
+            perimeter_reference = cv2.arcLength(box, True)
+            average_diameter = perimeter_reference / 4
+
+            # Factor pixels-to-metric
+            pixelsPerMetric = average_diameter / reference
+            pixel_metric_list.append([name_pic, pixelsPerMetric])
+
+            # Guardar imagen con máscara overlay si se solicita
+            if save_mask_overlay:
+                image = cv2.imread(image_path)
+                if image is None:
+                    print(f"No se pudo abrir {image_path}")
+                    continue
+
+                # Crear overlay azul con transparencia 0.6
+                overlay = image.copy()
+                blue_mask = np.zeros_like(image, dtype=np.uint8)
+                blue_mask[:, :] = (255, 0, 0)  # BGR azul
+                overlay[mask > 0] = cv2.addWeighted(image[mask > 0], 0.4, blue_mask[mask > 0], 0.6, 0)
+
+                # Guardar en carpeta específica
+                output_path = os.path.join(overlay_dir, f"overlay_{name_pic}")
+                cv2.imwrite(output_path, overlay)
+
+    # Crear DataFrame con pixel metric
     df_pix_met = pd.DataFrame(pixel_metric_list, columns=['Name_picture', 'Pixelmetric'])
 
-    # Merge with the original info_data DataFrame
+    # Merge con info_data
     info_data_completed = pd.merge(info_data, df_pix_met, on='Name_picture')
 
-    # Save the updated data to a text file
-    output = os.path.join(output_directory, "info_data_completed.txt")
-    info_data_completed.to_csv(output, index=False, sep='\t')
+    # Guardar a texto
+    output_txt = os.path.join(output_directory, "info_data_completed.txt")
+    info_data_completed.to_csv(output_txt, index=False, sep='\t')
 
     return info_data_completed
 
